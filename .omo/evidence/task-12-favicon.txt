@@ -1,0 +1,19 @@
+Task 12 — Favicon Update
+========================
+
+[index.html diff]
+-    <link rel="icon" type="image/svg+xml" href="/tauri.svg" />
++    <link rel="icon" type="image/svg+xml" href="/pressey-logo.svg" />
+
+Verification
+------------
+$ Get-Content -LiteralPath "index.html" | Select-String "pressey-logo.svg"
+
+Result: line 5 contains `href="/pressey-logo.svg"` — confirmed.
+
+Static asset
+------------
+public/pressey-logo.svg EXISTS (Task 3 deliverable).
+Built with the same theme tokens as the Logo component (oklch primary /
+foreground / background) embedded in an internal <style> block so the favicon
+renders identically without inheriting page CSS.

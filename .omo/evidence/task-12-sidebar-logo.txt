@@ -1,0 +1,35 @@
+Task 12 — Sidebar Logo Integration
+===================================
+
+[Sidebar.svelte]
+- Removed: `import Sparkles from 'lucide-svelte/icons/sparkles';`
+- Added:    `import Logo from './Logo.svelte';`
+- Brand slot: <Logo size={28} /> inside the existing h-9 w-9 rounded badge
+- Removed aria-hidden="true" from the badge wrapper — Logo carries its own
+  role="img" + aria-label="Pressey logo".
+- Removed text-primary class from the wrapper since the Logo is a coloured SVG
+  (no longer needs a CSS text-color tint).
+- Brand text "Pressey" + "AI · Test Studio" sublabel unchanged.
+
+[index.html]
+- <link rel="icon" type="image/svg+xml" href="/pressey-logo.svg" />
+
+[public/pressey-logo.svg]
+- EXISTS (from Task 3)
+
+Vitest output
+-------------
+$ npx vitest run src/components/Sidebar.test.ts
+
+ RUN v3.2.6 C:/Main/Projects/Pressey
+
+ ✓ src/components/Sidebar.test.ts (11 tests) 192ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  23:05:39
+   Duration  2.96s
+
+11 tests pass: 9 pre-existing + 2 new
+  - "renders the Logo component in the brand area"
+  - "exposes role="img" and aria-label on the logo"

@@ -65,6 +65,22 @@ describe('Sidebar', () => {
     expect(screen.getByText('Pressey')).toBeTruthy();
   });
 
+  // ── 6b. Renders Logo component in the brand slot ──────────────────
+  it('renders the Logo component in the brand area', () => {
+    render(Sidebar, defaultProps);
+    const logo = screen.getByRole('img', { name: 'Pressey logo' });
+    expect(logo).toBeTruthy();
+    expect(logo.tagName.toLowerCase()).toBe('svg');
+  });
+
+  // ── 6c. Logo carries role="img" and aria-label ─────────────────────
+  it('exposes role="img" and aria-label on the logo', () => {
+    render(Sidebar, defaultProps);
+    const logo = screen.getByRole('img', { name: 'Pressey logo' });
+    expect(logo.getAttribute('role')).toBe('img');
+    expect(logo.getAttribute('aria-label')).toBe('Pressey logo');
+  });
+
   // ── 7. Renders version status strip ────────────────────────────────
   it('renders version status', () => {
     render(Sidebar, defaultProps);

@@ -4,7 +4,7 @@
   import Play from 'lucide-svelte/icons/play';
   import History from 'lucide-svelte/icons/history';
   import Settings from 'lucide-svelte/icons/settings';
-  import Sparkles from 'lucide-svelte/icons/sparkles';
+  import Logo from './Logo.svelte';
 
   type RouteId = 'generate' | 'take' | 'history' | 'settings';
 
@@ -36,10 +36,9 @@
   <!-- Logo / brand area -->
   <div class="flex items-center gap-2.5 px-2">
     <div
-      class="grid h-9 w-9 place-items-center rounded-lg bg-primary/15 text-primary ring-1 ring-primary/30"
-      aria-hidden="true"
+      class="grid h-9 w-9 place-items-center rounded-lg bg-primary/15 ring-1 ring-primary/30"
     >
-      <Sparkles size="18" strokeWidth="2.25" />
+      <Logo size={28} />
     </div>
     <div class="flex flex-col leading-tight">
       <span class="font-display text-base font-bold tracking-tight text-foreground">Pressey</span>
