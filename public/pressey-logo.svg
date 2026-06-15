@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Pressey logo">
+  <style>
+    :root {
+      --color-primary: oklch(0.82 0.14 85);
+      --color-foreground: oklch(0.94 0.012 285);
+      --color-background: oklch(0.14 0.018 280);
+    }
+  </style>
+  <!-- ── Pencil behind right ear (drawn first, head covers lower half) ── -->
+  <g transform="rotate(22 72 32)">
+    <rect x="70" y="6" width="5" height="30" fill="var(--color-primary)" />
+    <rect x="70" y="6" width="5" height="4" fill="var(--color-foreground)" />
+    <line x1="70" y1="10" x2="75" y2="10" stroke="var(--color-background)" stroke-width="0.6" />
+    <polygon points="70,36 75,36 72.5,42" fill="var(--color-foreground)" />
+    <polygon points="71.5,40 73.5,40 72.5,42" fill="var(--color-background)" />
+  </g>
+
+  <!-- ── Badger head: light fill with dark stripes painted on top ─────── -->
+  <path d="M 30 42 Q 30 38 34 38 L 66 38 Q 70 38 70 42 L 70 66 Q 70 78 50 80 Q 30 78 30 66 Z"
+        fill="var(--color-foreground)" />
+
+  <!-- Ears (dark) -->
+  <path d="M 30 44 Q 26 36 30 32 Q 34 34 34 42 Z" fill="var(--color-background)" />
+  <path d="M 70 44 Q 74 36 70 32 Q 66 34 66 42 Z" fill="var(--color-background)" />
+
+  <!-- Iconic black eye bands -->
+  <path d="M 32 46 L 42 46 L 41 60 Q 40 62 38 62 L 32 60 Z" fill="var(--color-background)" />
+  <path d="M 68 46 L 58 46 L 59 60 Q 60 62 62 62 L 68 60 Z" fill="var(--color-background)" />
+
+  <!-- Eyes (light dots inside dark bands) -->
+  <circle cx="36" cy="52" r="1.8" fill="var(--color-foreground)" />
+  <circle cx="64" cy="52" r="1.8" fill="var(--color-foreground)" />
+
+  <!-- Nose -->
+  <ellipse cx="50" cy="66" rx="3" ry="2.2" fill="var(--color-background)" />
+
+  <!-- ── Mortarboard graduation cap on top of head ──────────────────── -->
+  <path d="M 32 32 L 68 32 L 65 40 L 35 40 Z" fill="var(--color-foreground)" />
+  <polygon points="50,18 86,30 50,36 14,30" fill="var(--color-foreground)" />
+  <polygon points="50,18 86,30 50,36 14,30" fill="none" stroke="var(--color-background)" stroke-width="0.6" />
+  <circle cx="50" cy="27" r="1.5" fill="var(--color-background)" />
+
+  <!-- Tassel (gold) -->
+  <path d="M 50 27 Q 68 32 76 42" stroke="var(--color-primary)" stroke-width="1.6" fill="none" stroke-linecap="round" />
+  <circle cx="76" cy="42" r="2" fill="var(--color-primary)" />
+  <path d="M 75 43.5 L 74 47 M 76 44 L 76 48 M 77 43.5 L 78 47"
+        stroke="var(--color-primary)" stroke-width="0.9" stroke-linecap="round" />
+</svg>
