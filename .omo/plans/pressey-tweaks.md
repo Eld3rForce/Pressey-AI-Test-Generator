@@ -480,7 +480,7 @@ Max Concurrent: 5 (Wave 2)
 
 ---
 
-- [ ] 5. Refactor api.ts to use provider abstraction
+- [x] 5. Refactor api.ts to use provider abstraction
 
   **What to do**:
   - Refactor `src/lib/api.ts` to delegate to `generateWithProvider` from `src/lib/providers/client.ts`
@@ -539,7 +539,7 @@ Max Concurrent: 5 (Wave 2)
 
 ---
 
-- [ ] 6. Update explanations.ts for provider abstraction
+- [x] 6. Update explanations.ts for provider abstraction
 
   **What to do**:
   - Refactor `src/lib/explanations.ts` to use `generateWithProvider` instead of hardcoded OpenRouter URL
