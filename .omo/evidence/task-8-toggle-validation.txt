@@ -1,0 +1,22 @@
+﻿Task 8 — Toggle Validation Evidence
+====================================
+
+QA Scenario: Both toggles off validation
+Command: npx vitest run src/lib/errorHandling.test.ts -t "toggle"
+Result: 2 tests passed (validateToggles)
+Date: 2026-06-15 22:52:25
+
+Functions added:
+- ErrorCodes.TOGGLES_BOTH_OFF
+- validateToggles(includeMcq, includeText)
+
+Tests pass:
+  ✓ validateToggles › should reject when both toggles are off
+  ✓ validateToggles › should accept when only MCQ is on
+  ✓ validateToggles › should accept when only Text is on
+  ✓ validateToggles › should accept when both toggles are on
+
+Files modified:
+- src/lib/errorUtils.ts (error codes + validation functions)
+- src/lib/errorHandling.test.ts (tests)
+- src/routes/GenerateTest.svelte (validation call)

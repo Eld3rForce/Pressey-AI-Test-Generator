@@ -10,11 +10,14 @@ import {
   validateMcqPercentage,
   validatePrompt,
   validateDifficulty,
+  validateToggles,
+  validateProvider,
+  validateProviderKey,
   ErrorCodes,
   MAX_RETRIES,
   BACKOFF_DELAYS,
 } from './errorUtils';
-import type { ApiError } from './types';
+import type { ApiError, ProviderType, Settings } from './types';
 
 // ============================================================
 // createApiError
@@ -513,6 +516,170 @@ describe('validateDifficulty', () => {
 });
 
 // ============================================================
+// Toggle validation — validateToggles
+// ============================================================
+
+describe('validateToggles', () => {
+  it('should reject when both toggles are off', () => {
+    const result = validateToggles(false, false);
+    expect(result.valid).toBe(false);
+    expect(result.error?.code).toBe(ErrorCodes.TOGGLES_BOTH_OFF);
+  });
+
+  it('should accept when only MCQ is on', () => {
+    expect(validateToggles(true, false).valid).toBe(true);
+  });
+
+  it('should accept when only Text is on', () => {
+    expect(validateToggles(false, true).valid).toBe(true);
+  });
+
+  it('should accept when both toggles are on', () => {
+    expect(validateToggles(true, true).valid).toBe(true);
+  });
+});
+
+// ============================================================
+// Provider validation — validateProvider
+// ============================================================
+
+describe('validateProvider', () => {
+  const baseSettings: Settings = {
+    apiKey: 'sk-or-v1-test',
+    model: 'test-model',
+    defaultQuestionCount: 10,
+    defaultMcqPercentage: 50,
+    defaultDifficulty: 'Medium',
+    openaiKey: 'sk-test-key',
+    anthropicKey: 'sk-or-v1-test',
+    geminiKey: 'AIza-test',
+    ollamaUrl: 'http://localhost:11434',
+    openrouterKey: 'sk-or-v1-test',
+  };
+
+  it('should accept a valid provider with matching key', () => {
+    const result = validateProvider('openai', baseSettings);
+    expect(result.valid).toBe(true);
+  });
+
+  it('should reject when provider key is missing', () => {
+    const settings: Settings = { ...baseSettings, openaiKey: '' };
+    const result = validateProvider('openai', settings);
+    expect(result.valid).toBe(false);
+    expect(result.error?.code).toBe(ErrorCodes.PROVIDER_KEY_MISSING);
+  });
+
+  it('should reject when provider key is undefined', () => {
+    const settings: Settings = { ...baseSettings, openaiKey: undefined };
+    const result = validateProvider('openai', settings);
+    expect(result.valid).toBe(false);
+    expect(result.error?.code).toBe(ErrorCodes.PROVIDER_KEY_MISSING);
+  });
+
+  it('should reject when provider key is whitespace only', () => {
+    const settings: Settings = { ...baseSettings, openaiKey: '   ' };
+    const result = validateProvider('openai', settings);
+    expect(result.valid).toBe(false);
+    expect(result.error?.code).toBe(ErrorCodes.PROVIDER_KEY_MISSING);
+  });
+});
+
+// ============================================================
+// Provider key validation — validateProviderKey
+// ============================================================
+
+describe('validateProviderKey', () => {
+  describe('openai', () => {
+    it('should accept key starting with sk-', () => {
+      expect(validateProviderKey('openai', 'sk-test-key-123').valid).toBe(true);
+    });
+
+    it('should accept key starting with sk-proj-', () => {
+      expect(validateProviderKey('openai', 'sk-proj-test-key').valid).toBe(true);
+    });
+
+    it('should reject key starting with sk-ant-', () => {
+      const result = validateProviderKey('openai', 'sk-ant-test-key');
+      expect(result.valid).toBe(false);
+      expect(result.error?.code).toBe(ErrorCodes.PROVIDER_INVALID);
+    });
+
+    it('should reject key starting with sk-or-', () => {
+      const result = validateProviderKey('openai', 'sk-or-v1-test');
+      expect(result.valid).toBe(false);
+      expect(result.error?.code).toBe(ErrorCodes.PROVIDER_INVALID);
+    });
+
+    it('should reject key that does not start with sk-', () => {
+      const result = validateProviderKey('openai', 'not-a-key');
+      expect(result.valid).toBe(false);
+      expect(result.error?.code).toBe(ErrorCodes.PROVIDER_INVALID);
+    });
+  });
+
+  describe('anthropic', () => {
+    it('should accept key starting with sk-or-', () => {
+      expect(validateProviderKey('anthropic', 'sk-or-v1-test').valid).toBe(true);
+    });
+
+    it('should reject key not starting with sk-or-', () => {
+      const result = validateProviderKey('anthropic', 'sk-ant-test');
+      expect(result.valid).toBe(false);
+      expect(result.error?.code).toBe(ErrorCodes.PROVIDER_INVALID);
+    });
+  });
+
+  describe('gemini', () => {
+    it('should accept key starting with AIza', () => {
+      expect(validateProviderKey('gemini', 'AIza-test-key').valid).toBe(true);
+    });
+
+    it('should reject key not starting with AIza', () => {
+      const result = validateProviderKey('gemini', 'sk-test-key');
+      expect(result.valid).toBe(false);
+      expect(result.error?.code).toBe(ErrorCodes.PROVIDER_INVALID);
+    });
+  });
+
+  describe('ollama', () => {
+    it('should accept any non-empty URL', () => {
+      expect(validateProviderKey('ollama', 'http://localhost:11434').valid).toBe(true);
+    });
+
+    it('should accept any string value', () => {
+      expect(validateProviderKey('ollama', 'anything').valid).toBe(true);
+    });
+
+    it('should reject empty string', () => {
+      const result = validateProviderKey('ollama', '');
+      expect(result.valid).toBe(false);
+      expect(result.error?.code).toBe(ErrorCodes.PROVIDER_KEY_MISSING);
+    });
+  });
+
+  describe('openrouter', () => {
+    it('should accept key starting with sk-or-', () => {
+      expect(validateProviderKey('openrouter', 'sk-or-v1-test').valid).toBe(true);
+    });
+
+    it('should reject key not starting with sk-or-', () => {
+      const result = validateProviderKey('openrouter', 'sk-test');
+      expect(result.valid).toBe(false);
+      expect(result.error?.code).toBe(ErrorCodes.PROVIDER_INVALID);
+    });
+  });
+
+  it('should reject empty string for any provider', () => {
+    const providers: ProviderType[] = ['openai', 'anthropic', 'gemini', 'ollama', 'openrouter'];
+    for (const p of providers) {
+      const result = validateProviderKey(p, '');
+      expect(result.valid).toBe(false);
+      expect(result.error?.code).toBe(ErrorCodes.PROVIDER_KEY_MISSING);
+    }
+  });
+});
+
+// ============================================================
 // Retry constants
 // ============================================================
 
@@ -561,6 +728,9 @@ describe('ErrorCodes', () => {
     expect(ErrorCodes.DB_CONNECTION_LOST).toBeDefined();
     expect(ErrorCodes.DB_CONSTRAINT_VIOLATION).toBeDefined();
     expect(ErrorCodes.DB_MIGRATION_FAILURE).toBeDefined();
+    expect(ErrorCodes.TOGGLES_BOTH_OFF).toBeDefined();
+    expect(ErrorCodes.PROVIDER_INVALID).toBeDefined();
+    expect(ErrorCodes.PROVIDER_KEY_MISSING).toBeDefined();
   });
 });
 

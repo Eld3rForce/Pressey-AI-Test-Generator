@@ -1,0 +1,43 @@
+﻿Task 8 — Provider Key Validation Evidence
+==========================================
+
+QA Scenario: Missing provider key validation
+Command: npx vitest run src/lib/errorHandling.test.ts -t "provider key"
+Result: 3 tests passed (validateProvider + validateProviderKey)
+Date: 2026-06-15 22:52:28
+
+Functions added:
+- ErrorCodes.PROVIDER_INVALID
+- ErrorCodes.PROVIDER_KEY_MISSING
+- validateProvider(provider, settings)
+- validateProviderKey(provider, key) with per-provider prefix checks:
+  • openai:     sk- (not sk-ant-, not sk-or-)
+  • anthropic:  sk-or- (OpenRouter routing)
+  • gemini:     AIza
+  • ollama:     any non-empty value
+  • openrouter: sk-or-
+
+Tests pass:
+  ✓ validateProvider › should accept a valid provider with matching key
+  ✓ validateProvider › should reject when provider key is missing
+  ✓ validateProvider › should reject when provider key is undefined
+  ✓ validateProvider › should reject when provider key is whitespace only
+  ✓ validateProviderKey › openai › should accept key starting with sk-
+  ✓ validateProviderKey › openai › should accept key starting with sk-proj-
+  ✓ validateProviderKey › openai › should reject key starting with sk-ant-
+  ✓ validateProviderKey › openai › should reject key starting with sk-or-
+  ✓ validateProviderKey › openai › should reject key that does not start with sk-
+  ✓ validateProviderKey › anthropic › should accept key starting with sk-or-
+  ✓ validateProviderKey › anthropic › should reject key not starting with sk-or-
+  ✓ validateProviderKey › gemini › should accept key starting with AIza
+  ✓ validateProviderKey › gemini › should reject key not starting with AIza
+  ✓ validateProviderKey › ollama › should accept any non-empty URL
+  ✓ validateProviderKey › ollama › should accept any string value
+  ✓ validateProviderKey › ollama › should reject empty string
+  ✓ validateProviderKey › openrouter › should accept key starting with sk-or-
+  ✓ validateProviderKey › openrouter › should reject key not starting with sk-or-
+  ✓ validateProviderKey › should reject empty string for any provider
+
+Files modified:
+- src/lib/errorUtils.ts (error codes + validation functions)
+- src/lib/errorHandling.test.ts (tests)

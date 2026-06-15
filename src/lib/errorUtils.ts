@@ -2,7 +2,7 @@
 // Centralized error handling utilities for Pressey
 // ============================================================
 
-import type { ApiError } from './types';
+import type { ApiError, ProviderType, Settings } from './types';
 
 // ============================================================
 // Error code constants
@@ -55,6 +55,11 @@ export const ErrorCodes = {
   TEST_OPTIONS_COUNT: 'TEST_OPTIONS_COUNT',
   TEST_ANSWER_NOT_IN_OPTIONS: 'TEST_ANSWER_NOT_IN_OPTIONS',
   TEST_MISSING_EXPLANATION: 'TEST_MISSING_EXPLANATION',
+
+  // Toggle / provider validation errors
+  TOGGLES_BOTH_OFF: 'TOGGLES_BOTH_OFF',
+  PROVIDER_INVALID: 'PROVIDER_INVALID',
+  PROVIDER_KEY_MISSING: 'PROVIDER_KEY_MISSING',
 
   // Generic
   UNKNOWN_ERROR: 'UNKNOWN_ERROR',
@@ -268,6 +273,14 @@ const USER_MESSAGES: Record<string, string> = {
   [ErrorCodes.INPUT_DIFFICULTY_INVALID]:
     'Invalid difficulty level. Must be Easy, Medium, or Hard.',
 
+  // Toggle / provider validation errors
+  [ErrorCodes.TOGGLES_BOTH_OFF]:
+    'At least one question type (MCQ or Text) must be selected.',
+  [ErrorCodes.PROVIDER_INVALID]:
+    'Invalid provider selected. Please check your Settings.',
+  [ErrorCodes.PROVIDER_KEY_MISSING]:
+    'API key is missing for the selected provider. Please add it in Settings.',
+
   // Test generation / validation errors
   [ErrorCodes.TEST_QUESTION_COUNT_MISMATCH]:
     'The AI generated the wrong number of questions. Please try again.',
@@ -446,4 +459,166 @@ export function validateDifficulty(
     };
   }
   return { valid: true };
+}
+
+// ============================================================
+// Toggle / provider validation
+// ============================================================
+
+/**
+ * Validate that at least one question type toggle is enabled.
+ */
+export function validateToggles(
+  includeMcq: boolean,
+  includeText: boolean
+): ValidationResult {
+  if (!includeMcq && !includeText) {
+    return {
+      valid: false,
+      error: createApiError(
+        ErrorCodes.TOGGLES_BOTH_OFF,
+        USER_MESSAGES[ErrorCodes.TOGGLES_BOTH_OFF]
+      ),
+    };
+  }
+  return { valid: true };
+}
+
+const VALID_PROVIDERS: ProviderType[] = [
+  'openai',
+  'anthropic',
+  'gemini',
+  'ollama',
+  'openrouter',
+];
+
+/**
+ * Validate that the provider is a known provider type and that
+ * the corresponding API key / URL is present in settings.
+ */
+export function validateProvider(
+  provider: ProviderType,
+  settings: Settings
+): ValidationResult {
+  if (!VALID_PROVIDERS.includes(provider)) {
+    return {
+      valid: false,
+      error: createApiError(
+        ErrorCodes.PROVIDER_INVALID,
+        USER_MESSAGES[ErrorCodes.PROVIDER_INVALID]
+      ),
+    };
+  }
+  // Check that the required key/URL for this provider exists and is non-empty
+  const keyMap: Record<ProviderType, string | undefined> = {
+    openai: settings.openaiKey,
+    anthropic: settings.anthropicKey,
+    gemini: settings.geminiKey,
+    ollama: settings.ollamaUrl,
+    openrouter: settings.openrouterKey,
+  };
+  const key = keyMap[provider];
+  if (!key || key.trim().length === 0) {
+    return {
+      valid: false,
+      error: createApiError(
+        ErrorCodes.PROVIDER_KEY_MISSING,
+        USER_MESSAGES[ErrorCodes.PROVIDER_KEY_MISSING]
+      ),
+    };
+  }
+  return { valid: true };
+}
+
+/**
+ * Validate that a provider's key matches the expected prefix pattern.
+ *
+ * - openai:     must start with `sk-` (but not `sk-ant-` or `sk-or-`)
+ * - anthropic:  must start with `sk-or-` (OpenRouter routing)
+ * - gemini:     must start with `AIza`
+ * - ollama:     any non-empty value (URL)
+ * - openrouter: must start with `sk-or-`
+ */
+export function validateProviderKey(
+  provider: ProviderType,
+  key: string
+): ValidationResult {
+  const trimmed = key.trim();
+  if (trimmed.length === 0) {
+    return {
+      valid: false,
+      error: createApiError(
+        ErrorCodes.PROVIDER_KEY_MISSING,
+        USER_MESSAGES[ErrorCodes.PROVIDER_KEY_MISSING]
+      ),
+    };
+  }
+
+  switch (provider) {
+    case 'openai': {
+      if (
+        trimmed.startsWith('sk-') &&
+        !trimmed.startsWith('sk-ant-') &&
+        !trimmed.startsWith('sk-or-')
+      ) {
+        return { valid: true };
+      }
+      return {
+        valid: false,
+        error: createApiError(
+          ErrorCodes.PROVIDER_INVALID,
+          `Invalid OpenAI API key format. Expected a key starting with "sk-" (not an Anthropic or OpenRouter key).`
+        ),
+      };
+    }
+    case 'anthropic': {
+      if (trimmed.startsWith('sk-or-')) {
+        return { valid: true };
+      }
+      return {
+        valid: false,
+        error: createApiError(
+          ErrorCodes.PROVIDER_INVALID,
+          'Invalid Anthropic key format. Anthropic uses OpenRouter routing, so the key must start with "sk-or-".'
+        ),
+      };
+    }
+    case 'gemini': {
+      if (trimmed.startsWith('AIza')) {
+        return { valid: true };
+      }
+      return {
+        valid: false,
+        error: createApiError(
+          ErrorCodes.PROVIDER_INVALID,
+          'Invalid Gemini API key format. Expected a key starting with "AIza".'
+        ),
+      };
+    }
+    case 'ollama': {
+      // Any non-empty value is accepted (URL)
+      return { valid: true };
+    }
+    case 'openrouter': {
+      if (trimmed.startsWith('sk-or-')) {
+        return { valid: true };
+      }
+      return {
+        valid: false,
+        error: createApiError(
+          ErrorCodes.PROVIDER_INVALID,
+          'Invalid OpenRouter API key format. Expected a key starting with "sk-or-".'
+        ),
+      };
+    }
+    default: {
+      return {
+        valid: false,
+        error: createApiError(
+          ErrorCodes.PROVIDER_INVALID,
+          `Unknown provider: "${provider}".`
+        ),
+      };
+    }
+  }
 }

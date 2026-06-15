@@ -1,5 +1,6 @@
 <script lang="ts">
   import { generateFromPrompt, generateFromFile } from '../lib/testGenerator';
+  import { validateToggles } from '../lib/errorUtils';
   import { uploadFile } from '../lib/fileUpload';
   import { createTest } from '../lib/dbService';
   import { settingsStore } from '../lib/settingsStore.svelte';
@@ -132,6 +133,14 @@
     const apiKeyValidation = validateApiKey(settingsStore.settings.apiKey);
     if (!apiKeyValidation.valid && apiKeyValidation.error) {
       apiError = apiKeyValidation.error.message;
+      generating = false;
+      return;
+    }
+
+    // Toggle validation — derived from mcqPercentage until toggle UI is added
+    const togglesValidation = validateToggles(mcqPercentage > 0, mcqPercentage < 100);
+    if (!togglesValidation.valid && togglesValidation.error) {
+      apiError = togglesValidation.error.message;
       generating = false;
       return;
     }
