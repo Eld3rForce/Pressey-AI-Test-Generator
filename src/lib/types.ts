@@ -2,11 +2,25 @@
 // Shared TypeScript types for Pressey AI Test Generator
 // ============================================================
 
+// --- Provider Types ---
+
+export type ProviderType = 'openai' | 'anthropic' | 'gemini' | 'ollama' | 'openrouter';
+
+export interface ProviderConfig {
+  url: string;
+  keyField: string;
+  defaultModel: string;
+  headers?: Record<string, string>;
+}
+
 // --- Test Configuration ---
 
 export interface TestConfig {
   questionCount: number;       // 1-50
   mcqPercentage: number;       // 0-100
+  includeMcq?: boolean;
+  includeText?: boolean;
+  provider?: ProviderType;
   difficulty: 'Easy' | 'Medium' | 'Hard';
   topic?: string;
 }
@@ -71,6 +85,12 @@ export interface Settings {
   defaultDifficulty: 'Easy' | 'Medium' | 'Hard';
   personality?: string;
   customInstructions?: string;
+  provider?: ProviderType;
+  openaiKey?: string;
+  anthropicKey?: string;
+  geminiKey?: string;
+  ollamaUrl?: string;
+  openrouterKey?: string;
 }
 
 // --- OpenRouter API Types ---
