@@ -199,7 +199,7 @@ Max Concurrent: 5 (Wave 2)
 
 ## TODOs
 
-- [ ] 1. Update types for toggles and providers
+- [x] 1. Update types for toggles and providers
 
   **What to do**:
   - Add `includeMcq: boolean` and `includeText: boolean` to `TestConfig` interface
@@ -257,7 +257,7 @@ Max Concurrent: 5 (Wave 2)
 
 ---
 
-- [ ] 2. Create provider registry and per-provider configs
+- [x] 2. Create provider registry and per-provider configs
 
   **What to do**:
   - Create `src/lib/providers/` directory
@@ -318,7 +318,7 @@ Max Concurrent: 5 (Wave 2)
 
 ---
 
-- [ ] 3. Create exam-badger SVG logo component
+- [x] 3. Create exam-badger SVG logo component
 
   **What to do**:
   - Create `src/components/Logo.svelte` — an inline SVG component
