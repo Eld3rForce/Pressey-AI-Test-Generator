@@ -385,7 +385,7 @@ Max Concurrent: 5 (Wave 2)
   - Files: `src/components/Logo.svelte`, `src/components/Logo.test.ts`, `public/pressey-logo.svg`
   - Pre-commit: `npm run test -- src/components/Logo.test.ts`
 
-- [ ] 4. Build unified provider API client (TDD)
+- [x] 4. Build unified provider API client (TDD)
 
   **What to do**:
   - Create `src/lib/providers/client.ts` — unified `generateWithProvider()` function
@@ -605,7 +605,7 @@ Max Concurrent: 5 (Wave 2)
 
 ---
 
-- [ ] 7. Update settingsStore with provider keys and migration
+- [x] 7. Update settingsStore with provider keys and migration
 
   **What to do**:
   - Update `src/lib/settingsStore.svelte.ts`:
@@ -696,7 +696,7 @@ Max Concurrent: 5 (Wave 2)
 
 ---
 
-- [ ] 8. Add validation for toggles and providers
+- [x] 8. Add validation for toggles and providers
 
   **What to do**:
   - Update `src/lib/errorUtils.ts`:
