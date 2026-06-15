@@ -6,7 +6,8 @@
 // can be loaded in non-DB contexts (tests, SSR) without failing.
 // ============================================================
 
-import type { Settings } from './types';
+import type { Settings, ProviderType } from './types';
+import { getProviderKey } from './providers/registry';
 
 const defaults: Settings = {
   apiKey: '',
@@ -16,6 +17,14 @@ const defaults: Settings = {
   defaultDifficulty: 'Medium',
   personality: 'none',
   customInstructions: '',
+  provider: 'openrouter',
+  openaiKey: '',
+  anthropicKey: '',
+  geminiKey: '',
+  ollamaUrl: 'http://localhost:11434',
+  openrouterKey: '',
+  includeMcq: true,
+  includeText: true,
 };
 
 class SettingsStore {
@@ -27,6 +36,25 @@ class SettingsStore {
     try {
       const { getSettings } = await import('./dbService');
       const s = await getSettings();
+
+      if (s.includeMcq === undefined || s.includeText === undefined) {
+        const pct = s.defaultMcqPercentage ?? 70;
+        if (pct === 0) {
+          s.includeMcq = false;
+          s.includeText = true;
+        } else if (pct === 100) {
+          s.includeMcq = true;
+          s.includeText = false;
+        } else {
+          s.includeMcq = true;
+          s.includeText = true;
+        }
+      }
+
+      if (s.apiKey && !s.openrouterKey) {
+        s.openrouterKey = s.apiKey;
+      }
+
       this.settings = { ...defaults, ...s };
       this.loaded = true;
     } catch {
@@ -37,13 +65,19 @@ class SettingsStore {
 
   async saveSettings(s: Settings) {
     try {
+      const previous = this.settings;
       const { saveSetting } = await import('./dbService');
-      const entries = Object.entries(s) as [string, string | number | undefined][];
+      const entries = Object.entries(s) as [string, string | number | boolean | undefined][];
       for (const [key, value] of entries) {
         if (value === undefined) continue;
+        if (key === 'theme' || key === 'accent') continue;
         await saveSetting(key, String(value));
       }
-      this.settings = { ...s };
+      this.settings = { ...s } as Settings;
+      const prevRaw = previous as unknown as Record<string, unknown>;
+      const updated = this.settings as unknown as Record<string, unknown>;
+      if (prevRaw.theme !== undefined) updated.theme = prevRaw.theme;
+      if (prevRaw.accent !== undefined) updated.accent = prevRaw.accent;
     } catch (e) {
       this.error = e instanceof Error ? e.message : 'Failed to save settings';
       throw e;
@@ -60,12 +94,48 @@ class SettingsStore {
     }
   }
 
-  async testApiConnection(apiKey: string): Promise<boolean> {
+  /**
+   * Test the API connection for the current (or specified) provider.
+   *
+   * Accepts an optional API key for backward compatibility with
+   * SettingsForm.svelte which passes the key directly. When called
+   * without arguments, reads the key from the store for the active
+   * provider.
+   */
+  async testApiConnection(apiKey?: string): Promise<boolean> {
+    const provider = (this.settings.provider || 'openrouter') as ProviderType;
+    const key = apiKey || getProviderKey(this.settings, provider);
+    if (!key) return false;
+
     try {
-      const res = await fetch('https://openrouter.ai/api/v1/auth/key', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      return res.ok;
+      switch (provider) {
+        case 'ollama': {
+          const baseUrl = key.replace(/\/+$/, '');
+          const res = await fetch(`${baseUrl}/api/tags`);
+          return res.ok;
+        }
+        case 'openrouter':
+        case 'anthropic': {
+          const res = await fetch('https://openrouter.ai/api/v1/auth/key', {
+            headers: { Authorization: `Bearer ${key}` },
+          });
+          return res.ok;
+        }
+        case 'openai': {
+          const res = await fetch('https://api.openai.com/v1/models', {
+            headers: { Authorization: `Bearer ${key}` },
+          });
+          return res.ok;
+        }
+        case 'gemini': {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models?key=${key}`,
+          );
+          return res.ok;
+        }
+        default:
+          return false;
+      }
     } catch {
       return false;
     }

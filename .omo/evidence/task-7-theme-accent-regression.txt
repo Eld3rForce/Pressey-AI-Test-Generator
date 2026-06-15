@@ -1,0 +1,7 @@
+﻿TEST: Theme/accent preservation regression
+STATUS: PASSED (2/2 tests)
+FILE: src/lib/settingsStore.test.ts
+DATE: 2026-06-15
+RESULTS:
+  - saveSettings does NOT persist theme/accent keys → PASSED
+  - Preserves theme/accent in-memory after saveSettings → PASSED

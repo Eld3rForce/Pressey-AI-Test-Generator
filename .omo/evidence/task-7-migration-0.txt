@@ -1,0 +1,5 @@
+﻿TEST: migration 0 → MCQ off, text on
+STATUS: PASSED
+FILE: src/lib/settingsStore.test.ts
+DATE: 2026-06-15
+RESULT: includeMcq=false, includeText=true

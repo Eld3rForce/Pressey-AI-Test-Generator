@@ -1,0 +1,5 @@
+﻿TEST: migration 70 → both ON + apiKey→openrouterKey
+STATUS: PASSED
+FILE: src/lib/settingsStore.test.ts
+DATE: 2026-06-15
+RESULT: includeMcq=true, includeText=true, openrouterKey='sk-legacy'
