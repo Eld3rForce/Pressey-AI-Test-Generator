@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    pressey_lib::run()
+    pressey_ai_test_generator_lib::run()
 }

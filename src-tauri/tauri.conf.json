@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "pressey",
+  "productName": "Pressey AI Test Generator",
   "version": "0.1.0",
-  "identifier": "com.adamburness-smith.pressey",
+  "identifier": "com.adamburness-smith.pressey-ai-test-generator",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,9 +12,12 @@
   "app": {
     "windows": [
       {
-        "title": "pressey",
-        "width": 800,
-        "height": 600
+        "title": "Pressey AI Test Generator",
+        "width": 1024,
+        "height": 768,
+        "resizable": true,
+        "minWidth": 1024,
+        "minHeight": 768
       }
     ],
     "security": {
