@@ -1,0 +1,192 @@
+{
+  "schema_version": 2,
+  "active_work_id": "pressey-tweaks-5c344951",
+  "works": {
+    "pressey-ai-test-generator-e09e4702": {
+      "work_id": "pressey-ai-test-generator-e09e4702",
+      "active_plan": "C:\\Main\\Projects\\Pressey\\.omo\\plans\\pressey-ai-test-generator.md",
+      "plan_name": "pressey-ai-test-generator",
+      "status": "completed",
+      "started_at": "2026-06-15T18:44:15.671Z",
+      "updated_at": "2026-06-15T21:04:03.483Z",
+      "session_ids": [
+        "opencode:ses_13366c16cffegnqkg0nQ3wp9re",
+        "opencode:ses_13322b7fbffexK3GTghBx8l51j",
+        "opencode:ses_13322a054ffe1u4xtggyXIf7Od",
+        "opencode:ses_133228e9ffferkYUgXUTdg0SMR",
+        "opencode:ses_133227ca7ffeQNisQo4zy5tHwc",
+        "opencode:ses_1332268aaffeA8cISM2AP03TK2"
+      ],
+      "session_origins": {
+        "opencode:ses_13366c16cffegnqkg0nQ3wp9re": "direct",
+        "opencode:ses_13322b7fbffexK3GTghBx8l51j": "appended",
+        "opencode:ses_13322a054ffe1u4xtggyXIf7Od": "appended",
+        "opencode:ses_133228e9ffferkYUgXUTdg0SMR": "appended",
+        "opencode:ses_133227ca7ffeQNisQo4zy5tHwc": "appended",
+        "opencode:ses_1332268aaffeA8cISM2AP03TK2": "appended"
+      },
+      "agent": "atlas",
+      "task_sessions": {
+        "todo:1": {
+          "task_key": "todo:1",
+          "task_label": "1",
+          "task_title": "**GitHub Repo Rename and Project Metadata Update**",
+          "session_id": "opencode:ses_13364dbafffeVg0EWmeXgc2n9U",
+          "agent": "Sisyphus-Junior",
+          "category": "quick",
+          "updated_at": "2026-06-15T19:01:40.018Z",
+          "started_at": "2026-06-15T18:53:21.888Z",
+          "status": "completed",
+          "ended_at": "2026-06-15T19:01:40.018Z",
+          "elapsed_ms": 498130
+        },
+        "todo:6": {
+          "task_key": "todo:6",
+          "task_label": "6",
+          "task_title": "**File Upload and Text Extraction (txt/md/PDF)**",
+          "session_id": "opencode:ses_1335646cbffeJTea8NXRxYIWtM",
+          "agent": "Sisyphus-Junior",
+          "category": "unspecified-high",
+          "updated_at": "2026-06-15T19:28:39.670Z",
+          "started_at": "2026-06-15T19:05:48.200Z",
+          "status": "completed",
+          "ended_at": "2026-06-15T19:28:39.670Z",
+          "elapsed_ms": 1371470
+        },
+        "todo:9": {
+          "task_key": "todo:9",
+          "task_label": "9",
+          "task_title": "**Settings Store and UI Component**",
+          "session_id": "opencode:ses_1333c7692ffe0KXzx5XIybNonI",
+          "agent": "Sisyphus-Junior",
+          "category": "quick",
+          "started_at": "2026-06-15T19:29:56.662Z",
+          "status": "completed",
+          "updated_at": "2026-06-15T19:35:33.626Z",
+          "ended_at": "2026-06-15T19:35:33.626Z",
+          "elapsed_ms": 336964
+        },
+        "todo:11": {
+          "task_key": "todo:11",
+          "task_label": "11",
+          "task_title": "**Sidebar Navigation and Layout Shell**",
+          "session_id": "opencode:ses_1333c7692ffe0KXzx5XIybNonI",
+          "agent": "Sisyphus-Junior",
+          "category": "quick",
+          "started_at": "2026-06-15T19:38:25.041Z",
+          "status": "completed",
+          "updated_at": "2026-06-15T19:44:47.093Z",
+          "ended_at": "2026-06-15T19:44:47.093Z",
+          "elapsed_ms": 382052
+        },
+        "todo:16": {
+          "task_key": "todo:16",
+          "task_label": "16",
+          "task_title": "**Settings Screen (API Key, Model, Defaults, Theme)**",
+          "session_id": "opencode:ses_13327f752ffeyu4TdjiTZTkdLf",
+          "agent": "Sisyphus-Junior",
+          "category": "quick",
+          "started_at": "2026-06-15T19:49:41.963Z",
+          "status": "completed",
+          "updated_at": "2026-06-15T19:58:21.793Z",
+          "ended_at": "2026-06-15T19:58:21.793Z",
+          "elapsed_ms": 519830
+        },
+        "todo:17": {
+          "task_key": "todo:17",
+          "task_label": "17",
+          "task_title": "**App Shell Integration (Routing, State Management, Error Handling)**",
+          "session_id": "opencode:ses_13312de9effeL48W5IF2vNozua",
+          "agent": "Sisyphus-Junior",
+          "category": "quick",
+          "started_at": "2026-06-15T20:14:51.716Z",
+          "status": "completed",
+          "updated_at": "2026-06-15T20:18:47.981Z",
+          "ended_at": "2026-06-15T20:18:47.980Z",
+          "elapsed_ms": 236264
+        },
+        "todo:19": {
+          "task_key": "todo:19",
+          "task_label": "19",
+          "task_title": "**Vitest Tests (Components, API Client, Database)**",
+          "session_id": "opencode:ses_1330fe9c9ffeOG3b5ny2Nc2RVy",
+          "agent": "Sisyphus-Junior",
+          "category": "unspecified-high",
+          "updated_at": "2026-06-15T20:38:59.061Z",
+          "started_at": "2026-06-15T20:38:12.944Z",
+          "status": "completed",
+          "ended_at": "2026-06-15T20:38:59.061Z",
+          "elapsed_ms": 46117
+        },
+        "final-wave:f1": {
+          "task_key": "final-wave:f1",
+          "task_label": "F1",
+          "task_title": "**Plan Compliance Audit** — `oracle`",
+          "session_id": "opencode:ses_132eac580ffenaJtUF56X66Hxw",
+          "agent": "Sisyphus-Junior",
+          "category": "unspecified-high",
+          "started_at": "2026-06-15T20:45:54.111Z",
+          "status": "completed",
+          "updated_at": "2026-06-15T21:03:32.430Z",
+          "ended_at": "2026-06-15T21:03:32.430Z",
+          "elapsed_ms": 1058319
+        }
+      },
+      "ended_at": "2026-06-15T21:04:03.483Z",
+      "elapsed_ms": 8387812
+    },
+    "pressey-tweaks-5c344951": {
+      "work_id": "pressey-tweaks-5c344951",
+      "active_plan": "C:\\Main\\Projects\\Pressey\\.omo\\plans\\pressey-tweaks.md",
+      "plan_name": "pressey-tweaks",
+      "status": "active",
+      "started_at": "2026-06-15T21:38:13.319Z",
+      "updated_at": "2026-06-15T21:45:45.542Z",
+      "session_ids": [
+        "opencode:ses_132dad5d4ffe0nq3XRImVS3eF5"
+      ],
+      "session_origins": {
+        "opencode:ses_132dad5d4ffe0nq3XRImVS3eF5": "direct"
+      },
+      "agent": "atlas",
+      "task_sessions": {
+        "todo:1": {
+          "task_key": "todo:1",
+          "task_label": "1",
+          "task_title": "Update types for toggles and providers",
+          "session_id": "opencode:ses_132c62a12fferSr9EYcHb0tDIj",
+          "agent": "Sisyphus-Junior",
+          "category": "quick",
+          "updated_at": "2026-06-15T21:45:45.543Z",
+          "started_at": "2026-06-15T21:45:45.543Z",
+          "status": "running"
+        }
+      }
+    }
+  },
+  "active_plan": "C:\\Main\\Projects\\Pressey\\.omo\\plans\\pressey-tweaks.md",
+  "started_at": "2026-06-15T21:38:13.319Z",
+  "status": "active",
+  "updated_at": "2026-06-15T21:45:45.542Z",
+  "session_ids": [
+    "opencode:ses_132dad5d4ffe0nq3XRImVS3eF5"
+  ],
+  "session_origins": {
+    "opencode:ses_132dad5d4ffe0nq3XRImVS3eF5": "direct"
+  },
+  "plan_name": "pressey-tweaks",
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "Update types for toggles and providers",
+      "session_id": "opencode:ses_132c62a12fferSr9EYcHb0tDIj",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-06-15T21:45:45.543Z",
+      "started_at": "2026-06-15T21:45:45.543Z",
+      "status": "running"
+    }
+  },
+  "agent": "atlas"
+}

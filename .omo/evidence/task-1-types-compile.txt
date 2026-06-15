@@ -1,0 +1,22 @@
+﻿Task 1 Evidence: Update types for toggles and providers
+Date: 2026-06-15 22:45:19
+Commit: e7f593d feat(types): add question toggles and provider types
+
+Type check result: 0 errors in src/lib/types.ts
+Total errors: 14 (all pre-existing in other files)
+
+Errors breakdown:
+- src/routes/GenerateTest.svelte: 5 errors (pre-existing - missing mapApiError, validatePrompt, validateApiKey)
+- src/routes/Settings.svelte: 2 errors (pre-existing - accent type issues)
+- src/components/Card.test.ts: 2 errors (pre-existing - Snippet type issues)
+- src/components/Logo.test.ts: 4 errors (pre-existing - SVGElement type assertions)
+- src/lib/providers/registry.ts: 1 error (pre-existing - settings indexing with string key)
+
+Changes verified:
+- ProviderType exported ✓ (union: 'openai' | 'anthropic' | 'gemini' | 'ollama' | 'openrouter')
+- ProviderConfig exported ✓ (url, keyField, defaultModel, headers?)
+- TestConfig: includeMcq?, includeText?, provider? ✓
+- Settings: provider?, openaiKey?, anthropicKey?, geminiKey?, ollamaUrl?, openrouterKey? ✓
+- mcqPercentage kept for backward compatibility ✓
+- apiKey kept (not removed) ✓
+- theme/accent NOT added to Settings ✓

@@ -53,6 +53,6 @@ export function getProviderKey(
     return settings.ollamaUrl;
   }
 
-  const value = settings[config.keyField];
+  const value = (settings as unknown as Record<string, unknown>)[config.keyField];
   return typeof value === 'string' ? value : undefined;
 }

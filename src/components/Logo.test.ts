@@ -21,7 +21,7 @@ describe('Logo', () => {
   // ── 3. Default size is 40 (matches sidebar brand slot) ──────────────
   it('uses default size of 40', () => {
     render(Logo);
-    const logo = screen.getByRole('img', { name: 'Pressey logo' }) as SVGElement;
+    const logo = screen.getByRole('img', { name: 'Pressey logo' }) as unknown as SVGElement;
     expect(logo.getAttribute('width')).toBe('40');
     expect(logo.getAttribute('height')).toBe('40');
   });
@@ -29,7 +29,7 @@ describe('Logo', () => {
   // ── 4. Custom size prop is forwarded to width/height ────────────────
   it('accepts a custom size prop', () => {
     render(Logo, { size: 64 });
-    const logo = screen.getByRole('img', { name: 'Pressey logo' }) as SVGElement;
+    const logo = screen.getByRole('img', { name: 'Pressey logo' }) as unknown as SVGElement;
     expect(logo.getAttribute('width')).toBe('64');
     expect(logo.getAttribute('height')).toBe('64');
   });
@@ -37,7 +37,7 @@ describe('Logo', () => {
   // ── 5. Custom className is merged (preserves shrink-0) ──────────────
   it('merges custom className', () => {
     render(Logo, { class: 'text-primary' });
-    const logo = screen.getByRole('img', { name: 'Pressey logo' });
+    const logo = screen.getByRole('img', { name: 'Pressey logo' }) as unknown as SVGElement;
     expect(logo.className.baseVal).toContain('shrink-0');
     expect(logo.className.baseVal).toContain('text-primary');
   });
