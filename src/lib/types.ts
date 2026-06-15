@@ -91,6 +91,8 @@ export interface Settings {
   geminiKey?: string;
   ollamaUrl?: string;
   openrouterKey?: string;
+  includeMcq?: boolean;
+  includeText?: boolean;
 }
 
 // --- OpenRouter API Types ---
