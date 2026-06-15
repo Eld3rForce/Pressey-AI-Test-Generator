@@ -1,0 +1,28 @@
+Task 13 - Generate Tauri Platform Icons
+=========================================
+Date: 2026-06-15
+
+Source: public/pressey-logo.svg
+Intermediate: public/pressey-logo-1024.png (14899 bytes, 1024x1024)
+
+Conversion tool: sharp-cli (npx -y sharp-cli)
+Generator: npx @tauri-apps/cli icon
+
+Generated files:
+  OK  src-tauri/icons/icon.png        (9118 bytes)
+  OK  src-tauri/icons/icon.ico        (8644 bytes)
+  OK  src-tauri/icons/icon.icns       (47178 bytes)
+  OK  src-tauri/icons/32x32.png       (605 bytes)
+  OK  src-tauri/icons/64x64.png       (1169 bytes)
+  OK  src-tauri/icons/128x128.png     (2268 bytes)
+  OK  src-tauri/icons/128x128@2x.png  (4421 bytes)
+  + Appx icons, iOS icons, Android icons
+
+Config: src-tauri/tauri.conf.json already references correct icon paths:
+  - icons/32x32.png
+  - icons/128x128.png
+  - icons/128x128@2x.png
+  - icons/icon.icns
+  - icons/icon.ico
+
+Status: ALL CHECKS PASSED
