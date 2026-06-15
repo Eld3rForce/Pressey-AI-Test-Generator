@@ -31,7 +31,7 @@ function mockFileSelect(filePath: string | null) {
 }
 
 function mockFileSize(sizeInBytes: number) {
-  vi.mocked(stat).mockResolvedValue({ size: sizeInBytes } as ReturnType<typeof stat>);
+  vi.mocked(stat).mockResolvedValue({ size: sizeInBytes } as unknown as Awaited<ReturnType<typeof stat>>);
 }
 
 function mockTextContent(content: string) {

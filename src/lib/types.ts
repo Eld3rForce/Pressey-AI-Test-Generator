@@ -120,7 +120,7 @@ export interface Explanation {
   questionId: number;
   explanation: string;
   userMistake: string;
-  resources: string[];     // URLs or references
+  resources: LearningResource[];
 }
 
 export interface LearningResource {

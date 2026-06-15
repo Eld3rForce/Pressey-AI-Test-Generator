@@ -1,15 +1,25 @@
 <script lang="ts">
   import { settingsStore } from '../lib/settingsStore.svelte';
+  import { validateApiKey, mapApiError } from '../lib/errorUtils';
+  import {
+    PERSONALITIES,
+    CUSTOM_PERSONALITY_ID,
+  } from '../lib/personalities';
 
   let apiKey = $state('');
   let model = $state('openai/gpt-4o');
   let questionCount = $state(10);
   let mcqPercentage = $state(70);
   let difficulty = $state<'Easy' | 'Medium' | 'Hard'>('Medium');
+  let personality = $state('none');
+  let customInstructions = $state('');
   let saving = $state(false);
   let testing = $state(false);
   let testResult = $state<'success' | 'error' | null>(null);
   let saveMessage = $state('');
+  let saveMessageType = $state<'success' | 'error'>('success');
+
+  const isCustom = $derived(personality === CUSTOM_PERSONALITY_ID);
 
   $effect(() => {
     settingsStore.loadSettings().then(() => {
@@ -18,10 +28,17 @@
       questionCount = settingsStore.settings.defaultQuestionCount;
       mcqPercentage = settingsStore.settings.defaultMcqPercentage;
       difficulty = settingsStore.settings.defaultDifficulty;
+      personality = settingsStore.settings.personality || 'none';
+      customInstructions = settingsStore.settings.customInstructions || '';
     });
   });
 
   async function handleTestConnection() {
+    const validation = validateApiKey(apiKey);
+    if (!validation.valid) {
+      testResult = 'error';
+      return;
+    }
     testing = true;
     testResult = null;
     const ok = await settingsStore.testApiConnection(apiKey);
@@ -35,6 +52,12 @@
   }
 
   async function handleSave() {
+    const validation = validateApiKey(apiKey);
+    if (!validation.valid) {
+      saveMessage = validation.error?.message || 'Invalid API key';
+      saveMessageType = 'error';
+      return;
+    }
     saving = true;
     saveMessage = '';
     try {
@@ -44,13 +67,17 @@
         defaultQuestionCount: questionCount,
         defaultMcqPercentage: mcqPercentage,
         defaultDifficulty: difficulty,
+        personality,
+        customInstructions: isCustom ? customInstructions : '',
       });
       saveMessage = 'Settings saved successfully';
+      saveMessageType = 'success';
       setTimeout(() => {
         saveMessage = '';
       }, 3000);
-    } catch {
-      saveMessage = 'Failed to save settings';
+    } catch (e) {
+      saveMessage = mapApiError(e);
+      saveMessageType = 'error';
     } finally {
       saving = false;
     }
@@ -130,6 +157,41 @@
     </div>
   </div>
 
+  <!-- ── AI Personality ─────────────────────────────────────────── -->
+  <div>
+    <label class="micro-label mb-2 block" for="personality-select">AI Personality</label>
+    <select
+      id="personality-select"
+      bind:value={personality}
+      class="w-full bg-background/30 rounded-lg border border-border px-4 py-2 text-foreground focus:ring-2 focus:ring-accent outline-none cursor-pointer"
+    >
+      <option value="none">None (default)</option>
+      {#each PERSONALITIES as p (p.id)}
+        <option value={p.id}>{p.name} — {p.description}</option>
+      {/each}
+      <option value={CUSTOM_PERSONALITY_ID}>Custom…</option>
+    </select>
+  </div>
+
+  {#if isCustom}
+    <div>
+      <label class="micro-label mb-2 block" for="custom-instructions-input">
+        Custom Instructions
+      </label>
+      <textarea
+        id="custom-instructions-input"
+        bind:value={customInstructions}
+        maxlength="500"
+        rows="4"
+        placeholder="Describe how the AI should behave when generating tests…"
+        class="w-full bg-background/30 rounded-lg border border-border px-4 py-2 text-foreground focus:ring-2 focus:ring-accent outline-none resize-y transition"
+      ></textarea>
+      <p class="mt-1 font-mono text-xs text-muted-foreground">
+        {customInstructions.length}/500 characters
+      </p>
+    </div>
+  {/if}
+
   <div class="flex gap-3 pt-4 border-t border-border">
     <button
       type="button"
@@ -157,8 +219,8 @@
   {#if saveMessage}
     <p
       class="text-sm"
-      class:text-success={saveMessage.includes('successfully')}
-      class:text-destructive={saveMessage.includes('Failed')}
+      class:text-success={saveMessageType === 'success'}
+      class:text-destructive={saveMessageType === 'error'}
     >
       {saveMessage}
     </p>

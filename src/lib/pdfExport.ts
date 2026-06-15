@@ -4,13 +4,12 @@
 // ============================================================
 
 import { jsPDF } from 'jspdf';
-import type { Test, Question } from './types';
+import type { Test } from './types';
 
 // --- Constants ---
 
 const MARGIN = 20;
 const PAGE_WIDTH = 210; // A4 width in mm
-const PAGE_HEIGHT = 297; // A4 height in mm
 const USABLE_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const FOOTER_Y = 285;
 

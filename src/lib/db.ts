@@ -119,8 +119,26 @@ export async function runMigrations(db: Database): Promise<void> {
       await db.execute('UPDATE schema_version SET version = 1');
     }
 
+    // ── Migration v2: explanations ───────────────────────────────────
+    if (currentVersion < 2) {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS explanations (
+          id              INTEGER PRIMARY KEY AUTOINCREMENT,
+          attempt_id      INTEGER NOT NULL,
+          question_id     INTEGER NOT NULL,
+          explanation     TEXT NOT NULL,
+          user_mistake    TEXT NOT NULL,
+          resources       TEXT NOT NULL,
+          FOREIGN KEY(attempt_id) REFERENCES attempts(id) ON DELETE CASCADE,
+          FOREIGN KEY(question_id) REFERENCES questions(id) ON DELETE CASCADE
+        )
+      `);
+
+      await db.execute('UPDATE schema_version SET version = 2');
+    }
+
     // Future migration versions go here:
-    // if (currentVersion < 2) { ... }
+    // if (currentVersion < 3) { ... }
   } catch (error) {
     console.error('Failed to run migrations:', error);
     throw error;

@@ -1,6 +1,7 @@
 import type Database from '@tauri-apps/plugin-sql';
 import { initDatabase } from './db';
-import type { Test, Question, Attempt, Response, Settings } from './types';
+import type { Test, Question, Attempt, Response, Settings, Explanation, LearningResource } from './types';
+import { createApiError, ErrorCodes } from './errorUtils';
 
 // ── Internal helpers ──────────────────────────────────────────────────
 
@@ -52,6 +53,15 @@ interface SettingRow {
   value: string;
 }
 
+interface ExplanationRow {
+  id: number;
+  attempt_id: number;
+  question_id: number;
+  explanation: string;
+  user_mistake: string;
+  resources: string;
+}
+
 function mapQuestion(row: QuestionRow): Question {
   let options: string[] = [];
   if (row.options) {
@@ -83,12 +93,84 @@ function mapResponse(row: ResponseRow): Response {
   };
 }
 
+function mapExplanation(row: ExplanationRow): Explanation {
+  let resources: LearningResource[] = [];
+  if (row.resources) {
+    try {
+      resources = JSON.parse(row.resources);
+    } catch (err) {
+      console.error('mapExplanation: failed to parse resources JSON', err);
+      resources = [];
+    }
+  }
+  return {
+    id: row.id,
+    attemptId: row.attempt_id,
+    questionId: row.question_id,
+    explanation: row.explanation,
+    userMistake: row.user_mistake,
+    resources,
+  };
+}
+
+/**
+ * Wraps a database error into a typed ApiError.
+ * Inspects the error message to classify connection/constraint/migration failures.
+ */
+function wrapDbError(error: unknown, operation: string): never {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    // Already an ApiError — rethrow as-is
+    throw error;
+  }
+
+  const msg = error instanceof Error ? error.message : String(error);
+  const lower = msg.toLowerCase();
+
+  if (
+    lower.includes('connection') ||
+    lower.includes('sqlite_busy') ||
+    lower.includes('database is locked') ||
+    lower.includes('cannot open')
+  ) {
+    throw createApiError(
+      ErrorCodes.DB_CONNECTION_LOST,
+      `Database connection lost during ${operation}: ${msg}`
+    );
+  }
+
+  if (
+    lower.includes('constraint') ||
+    lower.includes('unique') ||
+    lower.includes('foreign key')
+  ) {
+    throw createApiError(
+      ErrorCodes.DB_CONSTRAINT_VIOLATION,
+      `Database constraint violation during ${operation}: ${msg}`
+    );
+  }
+
+  if (lower.includes('migration') || lower.includes('schema')) {
+    throw createApiError(
+      ErrorCodes.DB_MIGRATION_FAILURE,
+      `Database migration failure during ${operation}: ${msg}`
+    );
+  }
+
+  throw createApiError(
+    ErrorCodes.DB_QUERY_ERROR,
+    `Database error during ${operation}: ${msg}`
+  );
+}
+
 async function getDb(): Promise<Database> {
   try {
     return await initDatabase();
   } catch (error) {
     console.error('Database service: failed to initialize database:', error);
-    throw error;
+    throw createApiError(
+      ErrorCodes.DB_INIT_ERROR,
+      `Failed to initialize database: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -107,7 +189,7 @@ export async function createTest(test: Test): Promise<number> {
       [test.title, test.topic ?? null, test.difficulty, test.questionCount, test.mcqPercentage]
     );
 
-    const testId = result.lastInsertId;
+    const testId = result.lastInsertId!;
 
     for (const question of test.questions) {
       const optionsJson = JSON.stringify(question.options ?? []);
@@ -129,7 +211,7 @@ export async function createTest(test: Test): Promise<number> {
     return testId;
   } catch (error) {
     console.error('createTest failed:', error);
-    throw error;
+    wrapDbError(error, 'createTest');
   }
 }
 
@@ -168,7 +250,7 @@ export async function getTest(id: number): Promise<Test | null> {
     };
   } catch (error) {
     console.error('getTest failed:', error);
-    throw error;
+    wrapDbError(error, 'getTest');
   }
 }
 
@@ -199,7 +281,7 @@ export async function getAllTests(): Promise<Test[]> {
     }));
   } catch (error) {
     console.error('getAllTests failed:', error);
-    throw error;
+    wrapDbError(error, 'getAllTests');
   }
 }
 
@@ -212,7 +294,7 @@ export async function deleteTest(id: number): Promise<void> {
     await db.execute('DELETE FROM tests WHERE id = ?', [id]);
   } catch (error) {
     console.error('deleteTest failed:', error);
-    throw error;
+    wrapDbError(error, 'deleteTest');
   }
 }
 
@@ -228,10 +310,10 @@ export async function createAttempt(testId: number): Promise<number> {
       `INSERT INTO attempts (test_id) VALUES (?)`,
       [testId]
     );
-    return result.lastInsertId;
+    return result.lastInsertId!;
   } catch (error) {
     console.error('createAttempt failed:', error);
-    throw error;
+    wrapDbError(error, 'createAttempt');
   }
 }
 
@@ -255,7 +337,7 @@ export async function completeAttempt(
     );
   } catch (error) {
     console.error('completeAttempt failed:', error);
-    throw error;
+    wrapDbError(error, 'completeAttempt');
   }
 }
 
@@ -280,7 +362,7 @@ export async function getAttempts(testId: number): Promise<Attempt[]> {
     }));
   } catch (error) {
     console.error('getAttempts failed:', error);
-    throw error;
+    wrapDbError(error, 'getAttempts');
   }
 }
 
@@ -310,7 +392,7 @@ export async function getAttempt(id: number): Promise<Attempt | null> {
     };
   } catch (error) {
     console.error('getAttempt failed:', error);
-    throw error;
+    wrapDbError(error, 'getAttempt');
   }
 }
 
@@ -329,7 +411,7 @@ export async function saveResponse(response: Response): Promise<void> {
     );
   } catch (error) {
     console.error('saveResponse failed:', error);
-    throw error;
+    wrapDbError(error, 'saveResponse');
   }
 }
 
@@ -348,7 +430,7 @@ export async function saveResponses(responses: Response[]): Promise<void> {
     }
   } catch (error) {
     console.error('saveResponses failed:', error);
-    throw error;
+    wrapDbError(error, 'saveResponses');
   }
 }
 
@@ -366,7 +448,75 @@ export async function getResponses(attemptId: number): Promise<Response[]> {
     return rows.map(mapResponse);
   } catch (error) {
     console.error('getResponses failed:', error);
-    throw error;
+    wrapDbError(error, 'getResponses');
+  }
+}
+
+// ── Explanation CRUD ──────────────────────────────────────────────────
+
+/**
+ * Save a single explanation. resources is JSON-serialized.
+ */
+export async function saveExplanation(explanation: Explanation): Promise<void> {
+  const db = await getDb();
+  try {
+    await db.execute(
+      `INSERT INTO explanations (attempt_id, question_id, explanation, user_mistake, resources)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        explanation.attemptId,
+        explanation.questionId,
+        explanation.explanation,
+        explanation.userMistake,
+        JSON.stringify(explanation.resources),
+      ]
+    );
+  } catch (error) {
+    console.error('saveExplanation failed:', error);
+    wrapDbError(error, 'saveExplanation');
+  }
+}
+
+/**
+ * Batch save explanations using sequential inserts.
+ */
+export async function saveExplanations(explanations: Explanation[]): Promise<void> {
+  const db = await getDb();
+  try {
+    for (const explanation of explanations) {
+      await db.execute(
+        `INSERT INTO explanations (attempt_id, question_id, explanation, user_mistake, resources)
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          explanation.attemptId,
+          explanation.questionId,
+          explanation.explanation,
+          explanation.userMistake,
+          JSON.stringify(explanation.resources),
+        ]
+      );
+    }
+  } catch (error) {
+    console.error('saveExplanations failed:', error);
+    wrapDbError(error, 'saveExplanations');
+  }
+}
+
+/**
+ * Get all explanations for a given attempt. resources JSON is deserialized back to LearningResource[].
+ */
+export async function getExplanations(attemptId: number): Promise<Explanation[]> {
+  const db = await getDb();
+  try {
+    const rows = await db.select<ExplanationRow[]>(
+      `SELECT * FROM explanations WHERE attempt_id = ?`,
+      [attemptId]
+    );
+
+    return rows.map(mapExplanation);
+  } catch (error) {
+    console.error('getExplanations failed:', error);
+    wrapDbError(error, 'getExplanations');
   }
 }
 
@@ -409,7 +559,7 @@ export async function getSettings(): Promise<Settings> {
     };
   } catch (error) {
     console.error('getSettings failed:', error);
-    throw error;
+    wrapDbError(error, 'getSettings');
   }
 }
 
@@ -425,7 +575,7 @@ export async function saveSetting(key: string, value: string): Promise<void> {
     );
   } catch (error) {
     console.error('saveSetting failed:', error);
-    throw error;
+    wrapDbError(error, 'saveSetting');
   }
 }
 
@@ -438,6 +588,6 @@ export async function deleteSetting(key: string): Promise<void> {
     await db.execute('DELETE FROM settings WHERE key = ?', [key]);
   } catch (error) {
     console.error('deleteSetting failed:', error);
-    throw error;
+    wrapDbError(error, 'deleteSetting');
   }
 }

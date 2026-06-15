@@ -14,12 +14,14 @@ const defaults: Settings = {
   defaultQuestionCount: 10,
   defaultMcqPercentage: 70,
   defaultDifficulty: 'Medium',
+  personality: 'none',
+  customInstructions: '',
 };
 
-export const settingsStore = {
-  settings: $state<Settings>({ ...defaults }),
-  loaded: $state(false),
-  error: $state<string | null>(null),
+class SettingsStore {
+  settings = $state<Settings>({ ...defaults });
+  loaded = $state(false);
+  error = $state<string | null>(null);
 
   async loadSettings() {
     try {
@@ -31,7 +33,7 @@ export const settingsStore = {
       this.settings = { ...defaults };
       this.loaded = true;
     }
-  },
+  }
 
   async saveSettings(s: Settings) {
     try {
@@ -46,17 +48,17 @@ export const settingsStore = {
       this.error = e instanceof Error ? e.message : 'Failed to save settings';
       throw e;
     }
-  },
+  }
 
   async updateSetting(key: string, value: string) {
     try {
       const { saveSetting } = await import('./dbService');
       await saveSetting(key, value);
-      (this.settings as Record<string, unknown>)[key] = value;
+      (this.settings as unknown as Record<string, unknown>)[key] = value;
     } catch (e) {
       this.error = e instanceof Error ? e.message : 'Failed to update setting';
     }
-  },
+  }
 
   async testApiConnection(apiKey: string): Promise<boolean> {
     try {
@@ -67,10 +69,12 @@ export const settingsStore = {
     } catch {
       return false;
     }
-  },
+  }
 
   resetToDefaults() {
     this.settings = { ...defaults };
     this.error = null;
-  },
-};
+  }
+}
+
+export const settingsStore = new SettingsStore();

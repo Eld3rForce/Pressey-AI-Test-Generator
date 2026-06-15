@@ -36,7 +36,7 @@ describe('initDatabase', () => {
     expect(mockLoad).toHaveBeenCalledWith('sqlite:pressey.db');
   });
 
-  it('creates all 6 tables (schema_version + 5 app tables) on fresh install', async () => {
+  it('creates all 7 tables (schema_version + 6 app tables) on fresh install', async () => {
     await initDatabase();
 
     const sqls = executedSqls();
@@ -46,7 +46,8 @@ describe('initDatabase', () => {
     expect(sqls.some((s) => s.includes('CREATE TABLE IF NOT EXISTS questions'))).toBe(true);
     expect(sqls.some((s) => s.includes('CREATE TABLE IF NOT EXISTS attempts'))).toBe(true);
     expect(sqls.some((s) => s.includes('CREATE TABLE IF NOT EXISTS responses'))).toBe(true);
-    expect(sqls.some((s) => s.includes('UPDATE schema_version SET version = 1'))).toBe(true);
+    expect(sqls.some((s) => s.includes('CREATE TABLE IF NOT EXISTS explanations'))).toBe(true);
+    expect(sqls.some((s) => s.includes('UPDATE schema_version SET version = 2'))).toBe(true);
   });
 
   it('returns the cached singleton on repeat calls', async () => {
@@ -125,7 +126,7 @@ describe('runMigrations', () => {
     expect(sqls.some((s) => s.includes('INSERT INTO schema_version'))).toBe(false);
   });
 
-  it('creates all 5 application tables', async () => {
+  it('creates all 6 application tables', async () => {
     mockSel
       .mockResolvedValueOnce([{ count: 0 }])
       .mockResolvedValueOnce([{ version: 0 }]);
@@ -139,21 +140,21 @@ describe('runMigrations', () => {
     expect(sqls.some((s) => s.includes('CREATE TABLE IF NOT EXISTS questions'))).toBe(true);
     expect(sqls.some((s) => s.includes('CREATE TABLE IF NOT EXISTS attempts'))).toBe(true);
     expect(sqls.some((s) => s.includes('CREATE TABLE IF NOT EXISTS responses'))).toBe(true);
-    expect(sqls.some((s) => s.includes('UPDATE schema_version SET version = 1'))).toBe(true);
+    expect(sqls.some((s) => s.includes('CREATE TABLE IF NOT EXISTS explanations'))).toBe(true);
+    expect(sqls.some((s) => s.includes('UPDATE schema_version SET version = 2'))).toBe(true);
   });
 
   it('skips app table creation when version is already >= 1', async () => {
     mockSel
       .mockResolvedValueOnce([{ count: 1 }])
-      .mockResolvedValueOnce([{ version: 1 }]);
+      .mockResolvedValueOnce([{ version: 2 }]);
 
     const db = { execute: mockExec, select: mockSel } as unknown as Database;
     await runMigrations(db);
 
     const sqls = mockExec.mock.calls.map((c: unknown[]) => c[0] as string);
-    // schema_version table is always re-attempted (IF NOT EXISTS)
     const createTableSqls = sqls.filter((s) => s.includes('CREATE TABLE'));
-    expect(createTableSqls).toHaveLength(1); // only schema_version
+    expect(createTableSqls).toHaveLength(1);
   });
 
   it('handles migration errors gracefully', async () => {

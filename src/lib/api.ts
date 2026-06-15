@@ -7,6 +7,14 @@ import type {
   ApiError,
 } from './types';
 import { TestResponseSchema } from './schemas';
+import {
+  createApiError,
+  isApiError,
+  shouldRetry,
+  ErrorCodes,
+  MAX_RETRIES,
+  BACKOFF_DELAYS,
+} from './errorUtils';
 import { sleep } from './utils';
 import type { ValidatedTestResponse } from './schemas';
 
@@ -16,41 +24,6 @@ import type { ValidatedTestResponse } from './schemas';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL = 'openai/gpt-4o';
-const MAX_RETRIES = 3;
-const BACKOFF_DELAYS = [1000, 2000, 4000]; // 1s, 2s, 4s
-
-// ============================================================
-// Helpers
-// ============================================================
-
-function createApiError(
-  code: string,
-  message: string,
-  status?: number
-): ApiError {
-  return { code, message, status };
-}
-
-function isApiError(error: unknown): error is ApiError {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    'message' in error
-  );
-}
-
-function shouldRetry(error: ApiError): boolean {
-  const retryable = [
-    'RATE_LIMITED',
-    'SERVER_ERROR',
-    'MALFORMED_JSON',
-    'EMPTY_RESPONSE',
-    'VALIDATION_ERROR',
-    'NETWORK_ERROR',
-  ];
-  return retryable.includes(error.code);
-}
 
 // ============================================================
 // Prompt construction
@@ -68,11 +41,18 @@ function buildSystemPrompt(config: TestConfig): string {
 function buildRequest(
   prompt: string,
   config: TestConfig,
-  model: string
+  model: string,
+  systemPrefix?: string
 ): OpenRouterRequest {
+  const baseSystemContent = buildSystemPrompt(config);
+
+  const systemContent = systemPrefix
+    ? `${systemPrefix}\n\n${baseSystemContent}`
+    : baseSystemContent;
+
   const systemMessage: OpenRouterMessage = {
     role: 'system',
-    content: buildSystemPrompt(config),
+    content: systemContent,
   };
 
   const userMessage: OpenRouterMessage = {
@@ -89,6 +69,37 @@ function buildRequest(
 }
 
 // ============================================================
+// HTTP error classification
+// ============================================================
+
+function classifyHttpError(status: number): string {
+  switch (status) {
+    case 401:
+      return ErrorCodes.AUTH_INVALID_KEY;
+    case 429:
+      return ErrorCodes.RATE_LIMITED;
+    case 400:
+      return ErrorCodes.BAD_REQUEST;
+    default:
+      if (status >= 500) return ErrorCodes.SERVER_ERROR;
+      return ErrorCodes.API_ERROR;
+  }
+}
+
+function getHttpErrorMessage(status: number): string {
+  switch (status) {
+    case 401:
+      return 'Invalid API key. Please check your OpenRouter API key.';
+    case 429:
+      return 'Rate limit exceeded. Please try again later.';
+    case 400:
+      return 'Bad request. Please check the request parameters.';
+    default:
+      return `HTTP error ${status}`;
+  }
+}
+
+// ============================================================
 // Validation
 // ============================================================
 
@@ -98,7 +109,7 @@ function validateApiResponse(
   const result = TestResponseSchema.safeParse(parsed);
   if (!result.success) {
     throw createApiError(
-      'VALIDATION_ERROR',
+      ErrorCodes.VALIDATION_ERROR,
       `Response validation failed: ${result.error.message}`
     );
   }
@@ -114,9 +125,10 @@ export async function generateTest(
   prompt: string,
   config: TestConfig,
   apiKey: string,
-  model: string = DEFAULT_MODEL
+  model: string = DEFAULT_MODEL,
+  systemPrefix?: string
 ): Promise<Test> {
-  const requestBody = buildRequest(prompt, config, model);
+  const requestBody = buildRequest(prompt, config, model, systemPrefix);
   let lastError: ApiError | null = null;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -137,13 +149,13 @@ export async function generateTest(
         const errorCode = classifyHttpError(response.status);
 
         // Do not retry on 401 (auth) or 400 (bad request)
-        if (errorCode === 'AUTH_INVALID_KEY' || errorCode === 'BAD_REQUEST') {
+        if (errorCode === ErrorCodes.AUTH_INVALID_KEY || errorCode === ErrorCodes.BAD_REQUEST) {
           throw createApiError(errorCode, getHttpErrorMessage(response.status), response.status);
         }
 
         // Retry on 429 and 5xx
         const error = createApiError(errorCode, getHttpErrorMessage(response.status), response.status);
-        if (attempt < MAX_RETRIES) {
+        if (attempt < MAX_RETRIES && shouldRetry(error)) {
           lastError = error;
           await sleep(BACKOFF_DELAYS[attempt]);
           continue;
@@ -156,14 +168,14 @@ export async function generateTest(
 
       // Check for API-level errors in the response
       if (data.error) {
-        throw createApiError('API_ERROR', data.error.message, data.error.code);
+        throw createApiError(ErrorCodes.API_ERROR, `${data.error.message} (code: ${data.error.code})`);
       }
 
       // Extract content from response
       const content = data.choices?.[0]?.message?.content;
       if (!content) {
-        const error = createApiError('EMPTY_RESPONSE', 'No content in API response');
-        if (attempt < MAX_RETRIES) {
+        const error = createApiError(ErrorCodes.EMPTY_RESPONSE, 'No content in API response');
+        if (attempt < MAX_RETRIES && shouldRetry(error)) {
           lastError = error;
           await sleep(BACKOFF_DELAYS[attempt]);
           continue;
@@ -176,8 +188,8 @@ export async function generateTest(
       try {
         parsedJson = JSON.parse(content);
       } catch {
-        const error = createApiError('MALFORMED_JSON', 'Failed to parse API response content as JSON');
-        if (attempt < MAX_RETRIES) {
+        const error = createApiError(ErrorCodes.MALFORMED_JSON, 'Failed to parse API response content as JSON');
+        if (attempt < MAX_RETRIES && shouldRetry(error)) {
           lastError = error;
           await sleep(BACKOFF_DELAYS[attempt]);
           continue;
@@ -205,7 +217,7 @@ export async function generateTest(
         })),
       };
     } catch (error: unknown) {
-      // Rethrow ApiErrors (they may have already triggered retry above)
+      // Rethrow ApiErrors that should not be retried
       if (isApiError(error)) {
         lastError = error;
         if (shouldRetry(error) && attempt < MAX_RETRIES) {
@@ -217,12 +229,12 @@ export async function generateTest(
 
       // Wrap unexpected errors (network errors, etc.)
       const networkError = createApiError(
-        'NETWORK_ERROR',
+        ErrorCodes.NETWORK_ERROR,
         error instanceof Error ? error.message : 'Unknown network error'
       );
       lastError = networkError;
 
-      if (attempt < MAX_RETRIES) {
+      if (attempt < MAX_RETRIES && shouldRetry(networkError)) {
         await sleep(BACKOFF_DELAYS[attempt]);
         continue;
       }
@@ -231,36 +243,8 @@ export async function generateTest(
   }
 
   // Should never reach here
-  throw lastError || createApiError('UNKNOWN_ERROR', 'Unexpected error after retries');
+  throw lastError || createApiError(ErrorCodes.UNKNOWN_ERROR, 'Unexpected error after retries');
 }
 
-// ============================================================
-// HTTP error classification
-// ============================================================
-
-function classifyHttpError(status: number): string {
-  switch (status) {
-    case 401:
-      return 'AUTH_INVALID_KEY';
-    case 429:
-      return 'RATE_LIMITED';
-    case 400:
-      return 'BAD_REQUEST';
-    default:
-      if (status >= 500) return 'SERVER_ERROR';
-      return 'API_ERROR';
-  }
-}
-
-function getHttpErrorMessage(status: number): string {
-  switch (status) {
-    case 401:
-      return 'Invalid API key. Please check your OpenRouter API key.';
-    case 429:
-      return 'Rate limit exceeded. Please try again later.';
-    case 400:
-      return 'Bad request. Please check the request parameters.';
-    default:
-      return `HTTP error ${status}`;
-  }
-}
+// Re-export key utilities for consumers
+export { isApiError, shouldRetry, ErrorCodes };

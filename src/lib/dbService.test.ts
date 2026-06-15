@@ -28,7 +28,7 @@ import {
   saveSetting,
   deleteSetting,
 } from './dbService';
-import type { Test, Question, Response, Attempt } from './types';
+import type { Test, Response } from './types';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 function mockDb() {

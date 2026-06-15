@@ -325,7 +325,7 @@ describe('generateTest', () => {
       generateTest('Create a test', DEFAULT_CONFIG, TEST_API_KEY)
     ).rejects.toMatchObject({
       code: 'API_ERROR',
-      message: 'Model overloaded',
+      message: expect.stringContaining('Model overloaded'),
     });
   });
 

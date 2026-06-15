@@ -1,5 +1,6 @@
 import { generateTest } from './api';
-import type { Test, TestConfig, Question } from './types';
+import type { Test, TestConfig } from './types';
+import { createApiError, ErrorCodes } from './errorUtils';
 
 // ============================================================
 // Rich prompt construction
@@ -63,7 +64,8 @@ Return the response as a JSON object with this exact structure:
 function validateTestStructure(test: Test, config: TestConfig): void {
   // Validate question count matches config
   if (test.questions.length !== config.questionCount) {
-    throw new Error(
+    throw createApiError(
+      ErrorCodes.TEST_QUESTION_COUNT_MISMATCH,
       `Question count mismatch: expected ${config.questionCount}, got ${test.questions.length}`
     );
   }
@@ -72,7 +74,8 @@ function validateTestStructure(test: Test, config: TestConfig): void {
   const expectedMcqCount = Math.round((config.mcqPercentage / 100) * config.questionCount);
   const actualMcqCount = test.questions.filter((q) => q.type === 'mcq').length;
   if (actualMcqCount !== expectedMcqCount) {
-    throw new Error(
+    throw createApiError(
+      ErrorCodes.TEST_MCQ_COUNT_MISMATCH,
       `MCQ count mismatch: expected ${expectedMcqCount} (${config.mcqPercentage}%), got ${actualMcqCount}`
     );
   }
@@ -83,27 +86,33 @@ function validateTestStructure(test: Test, config: TestConfig): void {
 
     // Required fields must be present
     if (!q.type || !q.text || !q.correctAnswer) {
-      throw new Error(
+      throw createApiError(
+        ErrorCodes.TEST_MISSING_FIELDS,
         `Question ${i + 1} is missing required fields (type, text, or correctAnswer)`
       );
     }
 
     // Type must be 'mcq' or 'text'
     if (q.type !== 'mcq' && q.type !== 'text') {
-      throw new Error(`Question ${i + 1} has invalid type: "${q.type}"`);
+      throw createApiError(
+        ErrorCodes.TEST_INVALID_TYPE,
+        `Question ${i + 1} has invalid type: "${q.type}"`
+      );
     }
 
     // MCQ-specific validation
     if (q.type === 'mcq') {
       if (!q.options || q.options.length !== 4) {
-        throw new Error(
+        throw createApiError(
+          ErrorCodes.TEST_OPTIONS_COUNT,
           `MCQ question ${i + 1} must have exactly 4 options, got ${q.options?.length ?? 0}`
         );
       }
 
       // Verify correctAnswer is one of the options
       if (!q.options.includes(q.correctAnswer)) {
-        throw new Error(
+        throw createApiError(
+          ErrorCodes.TEST_ANSWER_NOT_IN_OPTIONS,
           `MCQ question ${i + 1}: correctAnswer "${q.correctAnswer}" is not among the provided options`
         );
       }
@@ -111,7 +120,10 @@ function validateTestStructure(test: Test, config: TestConfig): void {
 
     // Explanation must be present for learning value
     if (!q.explanation) {
-      throw new Error(`Question ${i + 1} is missing an explanation`);
+      throw createApiError(
+        ErrorCodes.TEST_MISSING_EXPLANATION,
+        `Question ${i + 1} is missing an explanation`
+      );
     }
   }
 }
@@ -130,18 +142,21 @@ function validateTestStructure(test: Test, config: TestConfig): void {
  * @param prompt  Additional instructions to append to the base prompt.
  * @param config  Test configuration (question count, difficulty, etc.).
  * @param apiKey  OpenRouter API key.
+ * @param personalityPrompt  Optional personality system prefix (e.g. from
+ *   {@link buildPersonalityPrefix}) to prepend to the system message.
  * @returns The generated and validated Test.
  */
 export async function generateFromPrompt(
   prompt: string,
   config: TestConfig,
-  apiKey: string
+  apiKey: string,
+  personalityPrompt?: string
 ): Promise<Test> {
   // Compose full prompt: base system-like instructions + user's additional context
   const fullPrompt = `${buildRichPrompt(config)}\n\nADDITIONAL CONTEXT / INSTRUCTIONS:\n${prompt}`;
 
   // Call the API (retries and JSON parsing handled internally)
-  const test = await generateTest(fullPrompt, config, apiKey);
+  const test = await generateTest(fullPrompt, config, apiKey, undefined, personalityPrompt);
 
   // Validate the returned test structure against the config
   validateTestStructure(test, config);
@@ -167,13 +182,15 @@ export async function generateFromPrompt(
  * @param fileName     Name of the source file (for context in the prompt).
  * @param config       Test configuration.
  * @param apiKey       OpenRouter API key.
+ * @param personalityPrompt  Optional personality system prefix to influence tone.
  * @returns The generated and validated Test.
  */
 export async function generateFromFile(
   fileContent: string,
   fileName: string,
   config: TestConfig,
-  apiKey: string
+  apiKey: string,
+  personalityPrompt?: string
 ): Promise<Test> {
   const contextPrompt =
     `Generate a test based on the following content from file "${fileName}":\n\n` +
@@ -182,5 +199,5 @@ export async function generateFromFile(
     `presented in this content. Ensure questions cover the most important material ` +
     `from the document.`;
 
-  return generateFromPrompt(contextPrompt, config, apiKey);
+  return generateFromPrompt(contextPrompt, config, apiKey, personalityPrompt);
 }
