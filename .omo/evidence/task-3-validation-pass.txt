@@ -1,0 +1,14 @@
+﻿01:26:52 [vite-plugin-svelte] no Svelte config found at C:/Main/Projects/Pressey - using default configuration.
+
+[1m[46m RUN [49m[22m [36mv3.2.6 [39m[90mC:/Main/Projects/Pressey[39m
+
+ [32mÔ£ô[39m src/lib/errorHandling.test.ts [2m([22m[2m127 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32mÔ£ô[39m src/components/SettingsForm.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 119[2mms[22m[39m
+ [32mÔ£ô[39m src/routes/GenerateTest.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 339[2mms[22m[39m
+ [32mÔ£ô[39m src/routes/Settings.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 581[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m167 passed[39m[22m[90m (167)[39m
+[2m   Start at [22m 01:26:52
+[2m   Duration [22m 4.10s[2m (transform 1.66s, setup 4.82s, collect 1.66s, tests 1.06s, environment 5.24s, prepare 809ms)[22m
+

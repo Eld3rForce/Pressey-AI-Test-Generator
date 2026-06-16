@@ -1,6 +1,7 @@
 <script lang="ts">
   import { generateFromPrompt, generateFromFile } from '../lib/testGenerator';
-  import { validateToggles, mapApiError, validatePrompt, validateApiKey } from '../lib/errorUtils';
+  import { validateToggles, mapApiError, validatePrompt, validateProvider } from '../lib/errorUtils';
+  import { getProviderKey } from '../lib/providers/registry';
   import { uploadFile } from '../lib/fileUpload';
   import { createTest } from '../lib/dbService';
   import { settingsStore } from '../lib/settingsStore.svelte';
@@ -60,7 +61,7 @@
     !generating &&
       !saving &&
       hasInput &&
-      !!settingsStore.settings.apiKey &&
+      !!getProviderKey(settingsStore.settings, settingsStore.settings.provider ?? 'openrouter') &&
       togglesValid
   );
   const canSave = $derived(
@@ -144,7 +145,7 @@
       return;
     }
 
-    const apiKeyValidation = validateApiKey(settingsStore.settings.apiKey);
+    const apiKeyValidation = validateProvider(settingsStore.settings.provider ?? 'openrouter', settingsStore.settings);
     if (!apiKeyValidation.valid && apiKeyValidation.error) {
       apiError = apiKeyValidation.error.message;
       return;
@@ -560,7 +561,7 @@
     {/if}
   </button>
 
-  {#if !settingsStore.settings.apiKey}
+  {#if !getProviderKey(settingsStore.settings, settingsStore.settings.provider ?? 'openrouter')}
     <p class="text-center text-xs text-warning font-mono">
       ⚠ No API key configured — add one in Settings to generate tests.
     </p>

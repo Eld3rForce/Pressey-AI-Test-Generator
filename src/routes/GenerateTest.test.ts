@@ -9,7 +9,7 @@ vi.stubGlobal('mapApiError', vi.fn((e: unknown) =>
   e instanceof Error ? e.message : String(e)
 ));
 vi.stubGlobal('validatePrompt', vi.fn(() => ({ valid: true })));
-vi.stubGlobal('validateApiKey', vi.fn(() => ({ valid: true })));
+vi.stubGlobal('validateProvider', vi.fn(() => ({ valid: true })));
 
 // ── Mock settingsStore ────────────────────────────────────────────────
 vi.mock('../lib/settingsStore.svelte', () => {
@@ -21,6 +21,12 @@ vi.mock('../lib/settingsStore.svelte', () => {
     defaultDifficulty: 'Medium' as const,
     personality: 'default',
     customInstructions: '',
+    provider: 'openrouter' as const,
+    openaiKey: '',
+    anthropicKey: '',
+    geminiKey: '',
+    ollamaUrl: 'http://localhost:11434',
+    openrouterKey: 'sk-test-key',
   };
   return {
     settingsStore: {
@@ -121,7 +127,7 @@ import { settingsStore } from '../lib/settingsStore.svelte';
 describe('GenerateTest', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(settingsStore.settings).apiKey = 'sk-test-key';
+    vi.mocked(settingsStore.settings).openrouterKey = 'sk-test-key';
   });
 
   // ── 1. Renders the page header ─────────────────────────────────────
@@ -147,10 +153,14 @@ describe('GenerateTest', () => {
   });
 
   // ── 4. Renders configuration controls ──────────────────────────────
-  it('renders question count, MCQ slider, and difficulty controls', () => {
+  it('renders question count, question type toggles, and difficulty controls', () => {
     render(GenerateTest);
     expect(screen.getByText('Configuration')).toBeTruthy();
     expect(document.querySelector('#question-count-input')).toBeTruthy();
+    // Both toggles render
+    expect(document.querySelector('[data-testid="toggle-mcq"]')).toBeTruthy();
+    expect(document.querySelector('[data-testid="toggle-text"]')).toBeTruthy();
+    // With default state (both on) the MCQ % slider is visible
     expect(document.querySelector('#mcq-percentage-slider')).toBeTruthy();
     expect(screen.getByText('Easy')).toBeTruthy();
     expect(screen.getByText('Medium')).toBeTruthy();
@@ -165,10 +175,10 @@ describe('GenerateTest', () => {
 
   // ── 6. Shows API key warning when none is set ──────────────────────
   it('shows API key warning when none is set', () => {
-    vi.mocked(settingsStore.settings).apiKey = '';
+    vi.mocked(settingsStore.settings).openrouterKey = '';
     render(GenerateTest);
     expect(screen.getByText(/No API key configured/)).toBeTruthy();
-    vi.mocked(settingsStore.settings).apiKey = 'sk-test-key';
+    vi.mocked(settingsStore.settings).openrouterKey = 'sk-test-key';
   });
 
   // ── 7. Upload file section renders ─────────────────────────────────
@@ -237,7 +247,7 @@ describe('GenerateTest', () => {
     render(GenerateTest);
 
     const textarea = screen.getByPlaceholderText('Describe the test topic or paste content...');
-    await fireEvent.input(textarea, { target: { value: 'Test' } });
+    await fireEvent.input(textarea, { target: { value: 'Test prompt' } });
 
     await fireEvent.click(screen.getByRole('button', { name: 'Generate Test' }));
 
@@ -251,5 +261,176 @@ describe('GenerateTest', () => {
       expect(createTest).toHaveBeenCalledTimes(1);
       expect(screen.getByText(/Test saved to library/)).toBeTruthy();
     });
+  });
+
+  // ── 11. Both toggles off → validation error shown ──────────────────
+  it('shows validation error when both toggles are off', async () => {
+    render(GenerateTest);
+
+    const textarea = screen.getByPlaceholderText('Describe the test topic or paste content...');
+    await fireEvent.input(textarea, { target: { value: 'Test prompt for toggles' } });
+
+    // Turn both toggles off
+    const mcqToggle = document.querySelector(
+      '[data-testid="toggle-mcq"]'
+    ) as HTMLInputElement;
+    const textToggle = document.querySelector(
+      '[data-testid="toggle-text"]'
+    ) as HTMLInputElement;
+    expect(mcqToggle).toBeTruthy();
+    expect(textToggle).toBeTruthy();
+
+    await fireEvent.click(mcqToggle);
+    await fireEvent.click(textToggle);
+
+    // The MCQ slider should now be hidden
+    expect(document.querySelector('#mcq-percentage-slider')).toBeNull();
+
+    // Click Generate — should surface the validation error without calling the API
+    const genBtn = screen.getByRole('button', { name: 'Generate Test' });
+    await fireEvent.click(genBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('toggle-error')).toBeTruthy();
+    });
+    expect(generateFromPrompt).not.toHaveBeenCalled();
+  });
+
+  // ── 12. Only MCQ on → all generated questions are MCQ ─────────────
+  it('passes includeText=false (all MCQ) when only the MCQ toggle is on', async () => {
+    vi.mocked(generateFromPrompt).mockResolvedValue({
+      id: 1, title: 'MCQ Only', topic: 'Science', difficulty: 'Medium',
+      questionCount: 2, mcqPercentage: 100,
+      questions: [
+        { id: 1, type: 'mcq' as const, text: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A', explanation: '', orderIndex: 0 },
+        { id: 2, type: 'mcq' as const, text: 'Q2', options: ['A', 'B', 'C', 'D'], correctAnswer: 'B', explanation: '', orderIndex: 1 },
+      ],
+      createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z',
+    });
+
+    render(GenerateTest);
+
+    const textarea = screen.getByPlaceholderText('Describe the test topic or paste content...');
+    await fireEvent.input(textarea, { target: { value: 'MCQ only prompt' } });
+
+    // Turn off the text toggle
+    const textToggle = document.querySelector(
+      '[data-testid="toggle-text"]'
+    ) as HTMLInputElement;
+    await fireEvent.click(textToggle);
+
+    // Slider should be hidden when only one toggle is on
+    expect(document.querySelector('#mcq-percentage-slider')).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Generate Test' }));
+
+    await waitFor(() => {
+      expect(generateFromPrompt).toHaveBeenCalledTimes(1);
+    });
+
+    // TestConfig passed to the generator must include the toggles + provider
+    const callArgs = vi.mocked(generateFromPrompt).mock.calls[0];
+    const config = callArgs[1] as {
+      mcqPercentage: number;
+      includeMcq: boolean;
+      includeText: boolean;
+      provider?: string;
+    };
+    expect(config.includeMcq).toBe(true);
+    expect(config.includeText).toBe(false);
+    expect(config.mcqPercentage).toBe(100);
+    expect(config.provider).toBe('openrouter');
+  });
+
+  // ── 13. Only text on → all generated questions are text ───────────
+  it('passes includeMcq=false (all text) when only the text toggle is on', async () => {
+    vi.mocked(generateFromPrompt).mockResolvedValue({
+      id: 1, title: 'Text Only', topic: 'History', difficulty: 'Hard',
+      questionCount: 1, mcqPercentage: 0,
+      questions: [
+        { id: 1, type: 'text' as const, text: 'Explain X', correctAnswer: 'Y', explanation: '', orderIndex: 0 },
+      ],
+      createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z',
+    });
+
+    render(GenerateTest);
+
+    const textarea = screen.getByPlaceholderText('Describe the test topic or paste content...');
+    await fireEvent.input(textarea, { target: { value: 'Text only prompt' } });
+
+    // Turn off the MCQ toggle
+    const mcqToggle = document.querySelector(
+      '[data-testid="toggle-mcq"]'
+    ) as HTMLInputElement;
+    await fireEvent.click(mcqToggle);
+
+    // Slider hidden with only one toggle on
+    expect(document.querySelector('#mcq-percentage-slider')).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Generate Test' }));
+
+    await waitFor(() => {
+      expect(generateFromPrompt).toHaveBeenCalledTimes(1);
+    });
+
+    const callArgs = vi.mocked(generateFromPrompt).mock.calls[0];
+    const config = callArgs[1] as {
+      mcqPercentage: number;
+      includeMcq: boolean;
+      includeText: boolean;
+    };
+    expect(config.includeMcq).toBe(false);
+    expect(config.includeText).toBe(true);
+    expect(config.mcqPercentage).toBe(0);
+  });
+
+  // ── 14. Both toggles on → slider visible, mcqPercentage applies ───
+  it('shows the MCQ slider and respects its value when both toggles are on', async () => {
+    vi.mocked(generateFromPrompt).mockResolvedValue({
+      id: 1, title: 'Mixed', topic: 'Bio', difficulty: 'Easy',
+      questionCount: 1, mcqPercentage: 30,
+      questions: [
+        { id: 1, type: 'mcq' as const, text: 'Q', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A', explanation: '', orderIndex: 0 },
+      ],
+      createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z',
+    });
+
+    render(GenerateTest);
+
+    // Both toggles are on by default
+    const mcqToggle = document.querySelector(
+      '[data-testid="toggle-mcq"]'
+    ) as HTMLInputElement;
+    const textToggle = document.querySelector(
+      '[data-testid="toggle-text"]'
+    ) as HTMLInputElement;
+    expect(mcqToggle.checked).toBe(true);
+    expect(textToggle.checked).toBe(true);
+
+    // Slider is visible
+    const slider = document.querySelector('#mcq-percentage-slider') as HTMLInputElement;
+    expect(slider).toBeTruthy();
+
+    // Set slider to 30 and trigger input event
+    await fireEvent.input(slider, { target: { value: '30' } });
+
+    const textarea = screen.getByPlaceholderText('Describe the test topic or paste content...');
+    await fireEvent.input(textarea, { target: { value: 'Mixed prompt' } });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Generate Test' }));
+
+    await waitFor(() => {
+      expect(generateFromPrompt).toHaveBeenCalledTimes(1);
+    });
+
+    const callArgs = vi.mocked(generateFromPrompt).mock.calls[0];
+    const config = callArgs[1] as {
+      mcqPercentage: number;
+      includeMcq: boolean;
+      includeText: boolean;
+    };
+    expect(config.includeMcq).toBe(true);
+    expect(config.includeText).toBe(true);
+    expect(config.mcqPercentage).toBe(30);
   });
 });

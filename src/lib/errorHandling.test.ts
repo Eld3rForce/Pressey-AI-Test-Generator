@@ -582,6 +582,39 @@ describe('validateProvider', () => {
     expect(result.valid).toBe(false);
     expect(result.error?.code).toBe(ErrorCodes.PROVIDER_KEY_MISSING);
   });
+
+  // ── Parametric tests for all 5 providers ──────────────────────────
+  const PROVIDER_KEY_FIELDS: Record<ProviderType, keyof Settings> = {
+    openai: 'openaiKey',
+    anthropic: 'anthropicKey',
+    gemini: 'geminiKey',
+    ollama: 'ollamaUrl',
+    openrouter: 'openrouterKey',
+  };
+  const VALID_KEY_VALUES: Record<ProviderType, string> = {
+    openai: 'sk-test-key',
+    anthropic: 'sk-or-v1-test',
+    gemini: 'AIza-test',
+    ollama: 'http://localhost:11434',
+    openrouter: 'sk-or-v1-test',
+  };
+
+  for (const provider of ['openai', 'anthropic', 'gemini', 'ollama', 'openrouter'] as ProviderType[]) {
+    it(`should accept valid key for ${provider}`, () => {
+      const settings: Settings = { ...baseSettings };
+      settings[PROVIDER_KEY_FIELDS[provider]] = VALID_KEY_VALUES[provider];
+      const result = validateProvider(provider, settings);
+      expect(result.valid).toBe(true);
+    });
+
+    it(`should reject empty key for ${provider} with PROVIDER_KEY_MISSING`, () => {
+      const settings: Settings = { ...baseSettings };
+      settings[PROVIDER_KEY_FIELDS[provider]] = '';
+      const result = validateProvider(provider, settings);
+      expect(result.valid).toBe(false);
+      expect(result.error?.code).toBe(ErrorCodes.PROVIDER_KEY_MISSING);
+    });
+  }
 });
 
 // ============================================================

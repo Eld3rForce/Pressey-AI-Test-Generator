@@ -1,6 +1,6 @@
 <script lang="ts">
   import { settingsStore } from '../lib/settingsStore.svelte';
-  import { validateApiKey, mapApiError } from '../lib/errorUtils';
+  import { validateProvider, mapApiError } from '../lib/errorUtils';
   import {
     PERSONALITIES,
     CUSTOM_PERSONALITY_ID,
@@ -138,7 +138,7 @@
   }
 
   async function handleSave() {
-    const validation = validateApiKey(apiKey);
+    const validation = validateProvider(provider, settingsStore.settings);
     if (!validation.valid) {
       saveMessage = validation.error?.message || 'Invalid API key';
       saveMessageType = 'error';
