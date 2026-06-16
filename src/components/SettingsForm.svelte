@@ -15,6 +15,10 @@
   let difficulty = $state<'Easy' | 'Medium' | 'Hard'>('Medium');
   let personality = $state('none');
   let customInstructions = $state('');
+  // Research settings
+  let enableResearch = $state(false);
+  let researchMaxResults = $state(5);
+  let researchMaxSnippetChars = $state(800);
   // Provider-selection state
   let provider = $state<ProviderType>('openrouter');
   let openaiKey = $state('');
@@ -114,6 +118,9 @@
       difficulty = settingsStore.settings.defaultDifficulty;
       personality = settingsStore.settings.personality || 'none';
       customInstructions = settingsStore.settings.customInstructions || '';
+      enableResearch = settingsStore.settings.enableResearch ?? false;
+      researchMaxResults = settingsStore.settings.researchMaxResults ?? 5;
+      researchMaxSnippetChars = settingsStore.settings.researchMaxSnippetChars ?? 800;
     });
   });
 
@@ -161,6 +168,9 @@
         geminiKey,
         ollamaUrl,
         openrouterKey: openrouterKey || apiKey,
+        enableResearch,
+        researchMaxResults,
+        researchMaxSnippetChars,
       });
       saveMessage = 'Settings saved successfully';
       saveMessageType = 'success';
@@ -323,6 +333,50 @@
       <p class="mt-1 font-mono text-xs text-muted-foreground">
         {customInstructions.length}/500 characters
       </p>
+    </div>
+  {/if}
+
+  <!-- ── Research Settings ────────────────────────────────────── -->
+  <div class="border-t border-border pt-4">
+    <label class="flex items-center gap-2 text-foreground cursor-pointer">
+      <input
+        type="checkbox"
+        bind:checked={enableResearch}
+        data-testid="enable-research-checkbox"
+        class="accent-primary"
+      />
+      Enable Research (DuckDuckGo Web Search)
+    </label>
+  </div>
+
+  {#if enableResearch}
+    <div>
+      <label class="micro-label mb-2 block" for="research-max-results-input">
+        Max Results (1–10)
+      </label>
+      <input
+        id="research-max-results-input"
+        type="number"
+        bind:value={researchMaxResults}
+        min="1"
+        max="10"
+        data-testid="research-max-results-input"
+        class="w-full bg-background/30 rounded-lg border border-border px-4 py-2 text-foreground focus:ring-2 focus:ring-accent outline-none"
+      />
+    </div>
+    <div>
+      <label class="micro-label mb-2 block" for="research-max-snippet-chars-input">
+        Max Snippet Characters (100–2000)
+      </label>
+      <input
+        id="research-max-snippet-chars-input"
+        type="number"
+        bind:value={researchMaxSnippetChars}
+        min="100"
+        max="2000"
+        data-testid="research-max-snippet-chars-input"
+        class="w-full bg-background/30 rounded-lg border border-border px-4 py-2 text-foreground focus:ring-2 focus:ring-accent outline-none"
+      />
     </div>
   {/if}
 

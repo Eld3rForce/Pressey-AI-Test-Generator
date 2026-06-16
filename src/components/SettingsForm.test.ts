@@ -16,6 +16,13 @@ vi.mock('../lib/settingsStore.svelte', () => {
     geminiKey: '',
     ollamaUrl: 'http://localhost:11434',
     openrouterKey: '',
+    personality: 'none',
+    customInstructions: '',
+    includeMcq: true,
+    includeText: true,
+    enableResearch: false,
+    researchMaxResults: 5,
+    researchMaxSnippetChars: 800,
   };
   return {
     settingsStore: {
@@ -30,6 +37,12 @@ vi.mock('../lib/settingsStore.svelte', () => {
     },
   };
 });
+
+// Helper to get the mutable settings mock
+async function getMockSettings() {
+  const mod = await import('../lib/settingsStore.svelte');
+  return mod.settingsStore.settings as Record<string, unknown>;
+}
 
 describe('SettingsForm', () => {
   beforeEach(() => {
@@ -99,5 +112,72 @@ describe('SettingsForm', () => {
     select.value = 'anthropic';
     fireEvent.change(select);
     expect(screen.getByText(/routes through OpenRouter/)).toBeTruthy();
+  });
+
+  describe('research settings', () => {
+    it('renders enableResearch checkbox', () => {
+      render(SettingsForm);
+      const checkbox = screen.getByTestId('enable-research-checkbox') as HTMLInputElement;
+      expect(checkbox).toBeTruthy();
+      expect(checkbox.type).toBe('checkbox');
+    });
+
+    it('enableResearch checkbox starts unchecked', () => {
+      render(SettingsForm);
+      const checkbox = screen.getByTestId('enable-research-checkbox') as HTMLInputElement;
+      expect(checkbox.checked).toBe(false);
+    });
+
+    it('hides max results and snippet chars inputs when enableResearch is false', () => {
+      render(SettingsForm);
+      expect(screen.queryByTestId('research-max-results-input')).toBeNull();
+      expect(screen.queryByTestId('research-max-snippet-chars-input')).toBeNull();
+    });
+
+    it('shows max results and snippet chars inputs when enableResearch is true', async () => {
+      const s = await getMockSettings();
+      s.enableResearch = true;
+      render(SettingsForm);
+      expect(await screen.findByTestId('research-max-results-input')).toBeTruthy();
+      expect(await screen.findByTestId('research-max-snippet-chars-input')).toBeTruthy();
+    });
+
+    it('respects min/max on max results input', async () => {
+      const s = await getMockSettings();
+      s.enableResearch = true;
+      render(SettingsForm);
+      const input = (await screen.findByTestId('research-max-results-input')) as HTMLInputElement;
+      expect(input.min).toBe('1');
+      expect(input.max).toBe('10');
+    });
+
+    it('respects min/max on snippet chars input', async () => {
+      const s = await getMockSettings();
+      s.enableResearch = true;
+      render(SettingsForm);
+      const input = (await screen.findByTestId('research-max-snippet-chars-input')) as HTMLInputElement;
+      expect(input.min).toBe('100');
+      expect(input.max).toBe('2000');
+    });
+
+    it('saves research settings with correct values', async () => {
+      const { settingsStore } = await import('../lib/settingsStore.svelte');
+      const s = await getMockSettings();
+      s.enableResearch = true;
+      s.researchMaxResults = 8;
+      s.researchMaxSnippetChars = 1200;
+      s.openrouterKey = 'sk-or-v1-test-key';
+      render(SettingsForm);
+      // Flush microtasks so the $effect .then() from loadSettings runs
+      await new Promise(resolve => setTimeout(resolve, 0));
+      await fireEvent.click(screen.getByText('Save Settings'));
+      expect(settingsStore.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          enableResearch: true,
+          researchMaxResults: 8,
+          researchMaxSnippetChars: 1200,
+        }),
+      );
+    });
   });
 });
