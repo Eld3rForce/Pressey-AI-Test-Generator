@@ -2,42 +2,13 @@ import type {
   Test,
   Attempt,
   Explanation,
-  OpenRouterRequest,
+  ProviderType,
+  Settings,
 } from './types';
-import { ExplanationResponseSchema } from './schemas';
-import type { ValidatedExplanationResponse } from './schemas';
 import { getResponses } from './dbService';
-import { createApiError, ErrorCodes } from './errorUtils';
+import { generateExplanationWithProvider } from './providers/client';
 
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL = 'openai/gpt-4o';
-
-function classifyHttpError(status: number): string {
-  switch (status) {
-    case 401:
-      return ErrorCodes.AUTH_INVALID_KEY;
-    case 429:
-      return ErrorCodes.RATE_LIMITED;
-    case 400:
-      return ErrorCodes.BAD_REQUEST;
-    default:
-      if (status >= 500) return ErrorCodes.SERVER_ERROR;
-      return ErrorCodes.API_ERROR;
-  }
-}
-
-function getHttpErrorMessage(status: number): string {
-  switch (status) {
-    case 401:
-      return 'Invalid API key. Please check your OpenRouter API key.';
-    case 429:
-      return 'Rate limit exceeded. Please try again later.';
-    case 400:
-      return 'Bad request. Please check the request parameters.';
-    default:
-      return `HTTP error ${status}`;
-  }
-}
 
 function buildExplanationPrompt(
   questionText: string,
@@ -67,22 +38,46 @@ Respond with valid JSON in this exact format:
 }`;
 }
 
-function validateExplanationResponse(parsed: unknown): ValidatedExplanationResponse {
-  const result = ExplanationResponseSchema.safeParse(parsed);
-  if (!result.success) {
-    throw createApiError(
-      'VALIDATION_ERROR',
-      `Explanation validation failed: ${result.error.message}`
-    );
+/**
+ * Build a minimal Settings object from the legacy (apiKey, model) parameters
+ * for backward compatibility when no full Settings object is provided.
+ */
+function buildSettings(apiKey: string, model: string, provider: ProviderType): Settings {
+  const settings: Settings = {
+    apiKey,
+    model,
+    defaultQuestionCount: 10,
+    defaultMcqPercentage: 50,
+    defaultDifficulty: 'Medium',
+  };
+  switch (provider) {
+    case 'openai':
+      settings.openaiKey = apiKey;
+      break;
+    case 'anthropic':
+      // Anthropic uses OpenRouter routing
+      settings.openrouterKey = apiKey;
+      break;
+    case 'gemini':
+      settings.geminiKey = apiKey;
+      break;
+    case 'ollama':
+      settings.ollamaUrl = settings.ollamaUrl || 'http://localhost:11434';
+      break;
+    case 'openrouter':
+      settings.openrouterKey = apiKey;
+      break;
   }
-  return result.data;
+  return settings;
 }
 
 export async function generateExplanations(
   attempt: Attempt,
   test: Test,
   apiKey: string,
-  model: string = DEFAULT_MODEL
+  model: string = DEFAULT_MODEL,
+  provider: ProviderType = 'openrouter',
+  settings?: Settings,
 ): Promise<Explanation[]> {
   if (!attempt.id) throw new Error('Attempt must have an id');
 
@@ -92,6 +87,8 @@ export async function generateExplanations(
   if (wrongResponses.length === 0) return [];
 
   const questionMap = new Map(test.questions.map((q) => [q.id, q]));
+  const effectiveSettings = settings ?? buildSettings(apiKey, model, provider);
+  const systemContent = 'You are an expert tutor. Explain test answers clearly and provide helpful learning resources. Always respond with valid JSON.';
 
   const explanations: Explanation[] = [];
 
@@ -107,62 +104,14 @@ export async function generateExplanations(
       question.options
     );
 
-    const systemMessage = {
-      role: 'system' as const,
-      content: 'You are an expert tutor. Explain test answers clearly and provide helpful learning resources. Always respond with valid JSON.',
-    };
-
-    const userMessage = {
-      role: 'user' as const,
-      content: prompt,
-    };
-
-    const requestBody: OpenRouterRequest = {
-      model,
-      messages: [systemMessage, userMessage],
-      response_format: { type: 'json_object' },
-      temperature: 0.5,
-    };
-
     try {
-      const fetchResponse = await fetch(OPENROUTER_URL, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://pressey.app',
-          'X-Title': 'Pressey AI Explanation Generator',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!fetchResponse.ok) {
-        throw createApiError(
-          classifyHttpError(fetchResponse.status),
-          getHttpErrorMessage(fetchResponse.status),
-          fetchResponse.status
-        );
-      }
-
-      const data = await fetchResponse.json();
-
-      if (data.error) {
-        throw createApiError(ErrorCodes.API_ERROR, data.error.message, data.error.code);
-      }
-
-      const content = data.choices?.[0]?.message?.content;
-      if (!content) {
-        throw createApiError(ErrorCodes.EMPTY_RESPONSE, 'No content in API response');
-      }
-
-      let parsedJson: unknown;
-      try {
-        parsedJson = JSON.parse(content);
-      } catch {
-        throw createApiError(ErrorCodes.MALFORMED_JSON, 'Failed to parse explanation response as JSON');
-      }
-
-      const validated = validateExplanationResponse(parsedJson);
+      const validated = await generateExplanationWithProvider(
+        provider,
+        prompt,
+        systemContent,
+        effectiveSettings,
+        model,
+      );
 
       explanations.push({
         attemptId: attempt.id,

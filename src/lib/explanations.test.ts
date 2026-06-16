@@ -243,7 +243,7 @@ describe('generateExplanations', () => {
       generateExplanations(sampleAttempt, sampleTest, TEST_API_KEY)
     ).rejects.toMatchObject({
       code: 'API_ERROR',
-      message: 'Model overloaded',
+      message: 'Model overloaded (code: 503)',
     });
   });
 
@@ -366,5 +366,123 @@ describe('generateExplanations', () => {
     const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     const userMessage = requestBody.messages.find((m: { role: string }) => m.role === 'user');
     expect(userMessage.content).toContain("User's wrong answer: (no answer)");
+  });
+
+  it('should work with OpenAI provider', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(createExplanationResponse()),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const explanations = await generateExplanations(
+      sampleAttempt,
+      sampleTest,
+      'sk-test-openai-key-12345',
+      'gpt-4o',
+      'openai',
+    );
+
+    expect(explanations).toHaveLength(3);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+
+    // Verify the endpoint URL is OpenAI's
+    const calledUrl = mockFetch.mock.calls[0][0];
+    expect(calledUrl).toBe('https://api.openai.com/v1/chat/completions');
+  });
+
+  it('should work with explicit settings object', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(createExplanationResponse()),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const explanations = await generateExplanations(
+      sampleAttempt,
+      sampleTest,
+      'sk-or-v1-override-key',
+      'anthropic/claude-opus-4',
+      'openrouter',
+      {
+        apiKey: 'sk-or-v1-override-key',
+        model: 'anthropic/claude-opus-4',
+        defaultQuestionCount: 10,
+        defaultMcqPercentage: 50,
+        defaultDifficulty: 'Medium',
+        openrouterKey: 'sk-or-v1-override-key',
+      },
+    );
+
+    expect(explanations).toHaveLength(3);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+
+    const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(requestBody.model).toBe('anthropic/claude-opus-4');
+  });
+
+  it('should use default Ollama endpoint when provider is ollama and no custom URL', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(createExplanationResponse()),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await generateExplanations(
+      sampleAttempt,
+      sampleTest,
+      'ollama-key',
+      'llama3.2',
+      'ollama',
+    );
+
+    const calledUrl = mockFetch.mock.calls[0][0];
+    expect(calledUrl).toBe('http://localhost:11434/v1/chat/completions');
+  });
+
+  it('should use custom Ollama endpoint when provider is ollama with custom ollamaUrl', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(createExplanationResponse()),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await generateExplanations(
+      sampleAttempt,
+      sampleTest,
+      'ollama-key',
+      'llama3.2',
+      'ollama',
+      {
+        apiKey: 'ollama-key',
+        model: 'llama3.2',
+        defaultQuestionCount: 10,
+        defaultMcqPercentage: 50,
+        defaultDifficulty: 'Medium',
+        ollamaUrl: 'http://custom:11434',
+      },
+    );
+
+    const calledUrl = mockFetch.mock.calls[0][0];
+    expect(calledUrl).toBe('http://custom:11434/v1/chat/completions');
+  });
+
+  it('should use OpenRouter endpoint when provider is openrouter', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(createExplanationResponse()),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await generateExplanations(
+      sampleAttempt,
+      sampleTest,
+      TEST_API_KEY,
+      'openai/gpt-4o',
+      'openrouter',
+    );
+
+    const calledUrl = mockFetch.mock.calls[0][0];
+    expect(calledUrl).toBe('https://openrouter.ai/api/v1/chat/completions');
   });
 });
