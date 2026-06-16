@@ -5,6 +5,8 @@
     PERSONALITIES,
     CUSTOM_PERSONALITY_ID,
   } from '../lib/personalities';
+  import Tooltip from './Tooltip.svelte';
+  import type { ProviderType } from '../lib/types';
 
   let apiKey = $state('');
   let model = $state('openai/gpt-4o');
@@ -13,6 +15,82 @@
   let difficulty = $state<'Easy' | 'Medium' | 'Hard'>('Medium');
   let personality = $state('none');
   let customInstructions = $state('');
+  // Provider-selection state
+  let provider = $state<ProviderType>('openrouter');
+  let openaiKey = $state('');
+  let anthropicKey = $state('');
+  let geminiKey = $state('');
+  let ollamaUrl = $state('http://localhost:11434');
+  let openrouterKey = $state('');
+
+  // Per-provider model lists (hardcoded curated lists)
+  const providerModels: Record<ProviderType, string[]> = {
+    openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo'],
+    anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229', 'claude-3-haiku-20240307'],
+    gemini: ['gemini-1.5-pro', 'gemini-1.5-flash'],
+    ollama: [],
+    openrouter: ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'google/gemini-1.5-pro'],
+  };
+
+  const providerLabels: Record<ProviderType, { label: string; placeholder: string }> = {
+    openai: { label: 'OpenAI API Key', placeholder: 'sk-...' },
+    anthropic: { label: 'Anthropic API Key', placeholder: 'sk-ant-...' },
+    gemini: { label: 'Gemini API Key', placeholder: 'AIza...' },
+    ollama: { label: 'Ollama Base URL', placeholder: 'http://localhost:11434' },
+    openrouter: { label: 'OpenRouter API Key', placeholder: 'sk-or-...' },
+  };
+
+  const modelDefaults: Record<ProviderType, string> = {
+    openai: 'gpt-4o',
+    anthropic: 'claude-3-5-sonnet-20241022',
+    gemini: 'gemini-1.5-pro',
+    ollama: 'llama3.2',
+    openrouter: 'openai/gpt-4o',
+  };
+
+  function getProviderKeyValue(): string {
+    switch (provider) {
+      case 'openai': return openaiKey;
+      case 'anthropic': return anthropicKey;
+      case 'gemini': return geminiKey;
+      case 'ollama': return ollamaUrl;
+      case 'openrouter': return openrouterKey;
+    }
+  }
+
+  function setProviderKeyValue(value: string) {
+    switch (provider) {
+      case 'openai': openaiKey = value; break;
+      case 'anthropic': anthropicKey = value; break;
+      case 'gemini': geminiKey = value; break;
+      case 'ollama': ollamaUrl = value; break;
+      case 'openrouter': openrouterKey = value; break;
+    }
+  }
+
+  function handleProviderChange(newProvider: ProviderType) {
+    const models = providerModels[newProvider];
+    if (models.length > 0 && !models.includes(model)) {
+      model = modelDefaults[newProvider];
+    }
+  }
+
+  // Use action to attach direct DOM listener (avoids Svelte 5 event delegation)
+  function trackProviderChange(node: HTMLSelectElement) {
+    function onChange(e: Event) {
+      const target = e.currentTarget as HTMLSelectElement;
+      const newProvider = target.value as ProviderType;
+      provider = newProvider;
+      handleProviderChange(newProvider);
+    }
+    node.addEventListener('change', onChange);
+    return {
+      destroy() {
+        node.removeEventListener('change', onChange);
+      }
+    };
+  }
+
   let saving = $state(false);
   let testing = $state(false);
   let testResult = $state<'success' | 'error' | null>(null);
@@ -23,8 +101,14 @@
 
   $effect(() => {
     settingsStore.loadSettings().then(() => {
-      apiKey = settingsStore.settings.apiKey;
-      model = settingsStore.settings.model;
+      provider = (settingsStore.settings.provider as ProviderType) || 'openrouter';
+      openaiKey = settingsStore.settings.openaiKey || '';
+      anthropicKey = settingsStore.settings.anthropicKey || '';
+      geminiKey = settingsStore.settings.geminiKey || '';
+      ollamaUrl = settingsStore.settings.ollamaUrl || 'http://localhost:11434';
+      openrouterKey = settingsStore.settings.openrouterKey || '';
+      apiKey = settingsStore.settings.apiKey || '';
+      model = settingsStore.settings.model || modelDefaults[provider];
       questionCount = settingsStore.settings.defaultQuestionCount;
       mcqPercentage = settingsStore.settings.defaultMcqPercentage;
       difficulty = settingsStore.settings.defaultDifficulty;
@@ -34,14 +118,16 @@
   });
 
   async function handleTestConnection() {
-    const validation = validateApiKey(apiKey);
-    if (!validation.valid) {
+    const key = getProviderKeyValue();
+    if (!key) {
       testResult = 'error';
       return;
     }
     testing = true;
     testResult = null;
-    const ok = await settingsStore.testApiConnection(apiKey);
+    // Set provider on store so testApiConnection uses the right endpoint
+    settingsStore.settings.provider = provider;
+    const ok = await settingsStore.testApiConnection(key);
     testResult = ok ? 'success' : 'error';
     testing = false;
     if (testResult === 'success') {
@@ -62,13 +148,19 @@
     saveMessage = '';
     try {
       await settingsStore.saveSettings({
-        apiKey,
+        apiKey: openrouterKey || apiKey,
         model,
         defaultQuestionCount: questionCount,
         defaultMcqPercentage: mcqPercentage,
         defaultDifficulty: difficulty,
         personality,
         customInstructions: isCustom ? customInstructions : '',
+        provider,
+        openaiKey,
+        anthropicKey,
+        geminiKey,
+        ollamaUrl,
+        openrouterKey: openrouterKey || apiKey,
       });
       saveMessage = 'Settings saved successfully';
       saveMessageType = 'success';
@@ -87,30 +179,70 @@
 <div class="surface-card p-6 space-y-6 max-w-lg">
   <h2 class="font-display text-xl font-bold text-foreground">Settings</h2>
 
+  <!-- ── Provider ──────────────────────────────────────────────── -->
   <div>
-    <label class="micro-label mb-2 block" for="api-key-input">API Key</label>
-    <input
-      id="api-key-input"
-      type="password"
-      bind:value={apiKey}
-      placeholder="sk-or-..."
-      class="w-full bg-background/30 rounded-lg border border-border px-4 py-2 text-foreground focus:ring-2 focus:ring-accent outline-none transition"
-    />
-  </div>
-
-  <div>
-    <label class="micro-label mb-2 block" for="model-select">Model</label>
+    <label class="micro-label mb-2 block" for="provider-select">Provider</label>
     <select
-      id="model-select"
-      bind:value={model}
+      id="provider-select"
+      data-testid="provider-select"
+      use:trackProviderChange
       class="w-full bg-background/30 rounded-lg border border-border px-4 py-2 text-foreground focus:ring-2 focus:ring-accent outline-none cursor-pointer"
     >
-      <option value="openai/gpt-4o">GPT-4o</option>
-      <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</option>
-      <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-      <option value="google/gemini-pro">Gemini Pro</option>
+      <option value="openai" selected={provider === 'openai'}>OpenAI</option>
+      <option value="anthropic" selected={provider === 'anthropic'}>Anthropic</option>
+      <option value="gemini" selected={provider === 'gemini'}>Google Gemini</option>
+      <option value="ollama" selected={provider === 'ollama'}>Ollama (Local)</option>
+      <option value="openrouter" selected={provider === 'openrouter'}>OpenRouter</option>
     </select>
   </div>
+
+  <!-- ── API Key / URL (per-provider) ──────────────────────────── -->
+  <div>
+    <label class="micro-label mb-2 block" for="api-key-input">{providerLabels[provider].label}</label>
+    <input
+      id="api-key-input"
+      data-testid="api-key-input"
+      type={provider === 'ollama' ? 'url' : 'password'}
+      value={getProviderKeyValue()}
+      oninput={(e) => setProviderKeyValue(e.currentTarget.value)}
+      placeholder={providerLabels[provider].placeholder}
+      class="w-full bg-background/30 rounded-lg border border-border px-4 py-2 text-foreground focus:ring-2 focus:ring-accent outline-none transition"
+    />
+    {#if provider === 'anthropic'}
+      <p class="text-xs text-muted-foreground mt-1">
+        Note: Anthropic currently routes through OpenRouter. Your Anthropic API key is stored for future use.
+      </p>
+    {/if}
+  </div>
+
+  <!-- ── Model (per-provider) ───────────────────────────────────── -->
+  {#if providerModels[provider].length > 0}
+    <div>
+      <label class="micro-label mb-2 block" for="model-select">Model</label>
+      <select
+        id="model-select"
+        data-testid="model-input"
+        bind:value={model}
+        class="w-full bg-background/30 rounded-lg border border-border px-4 py-2 text-foreground focus:ring-2 focus:ring-accent outline-none cursor-pointer"
+      >
+        {#each providerModels[provider] as m (m)}
+          <option value={m}>{m}</option>
+        {/each}
+      </select>
+    </div>
+  {:else}
+    <div>
+      <label class="micro-label mb-2 block" for="model-input">Model</label>
+      <input
+        id="model-input"
+        data-testid="model-input"
+        type="text"
+        bind:value={model}
+        placeholder="llama3.2, mistral, codellama..."
+        class="w-full bg-background/30 rounded-lg border border-border px-4 py-2 text-foreground focus:ring-2 focus:ring-accent outline-none transition"
+      />
+    </div>
+  {/if}
 
   <div>
     <label class="micro-label mb-2 block" for="question-count-input"
@@ -127,9 +259,11 @@
   </div>
 
   <div>
-    <label class="micro-label mb-2 block" for="mcq-percentage-slider"
-      >MCQ Percentage: {mcqPercentage}%</label
-    >
+    <Tooltip text="MCQ = Multiple Choice Questions">
+      <label class="micro-label mb-2 block" for="mcq-percentage-slider"
+        >MCQ Percentage: {mcqPercentage}%</label
+      >
+    </Tooltip>
     <input
       id="mcq-percentage-slider"
       type="range"
@@ -195,8 +329,9 @@
   <div class="flex gap-3 pt-4 border-t border-border">
     <button
       type="button"
+      data-testid="test-connection-button"
       onclick={handleTestConnection}
-      disabled={testing || !apiKey}
+      disabled={testing || !getProviderKeyValue()}
       class="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-accent/10 disabled:opacity-50 transition"
     >
       {testing ? 'Testing...' : 'Test Connection'}
