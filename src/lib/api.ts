@@ -33,6 +33,12 @@ export async function generateTest(
   systemPrefix?: string,
   provider: ProviderType = 'openrouter'
 ): Promise<Test> {
+  // Build a minimal Settings object from the parameters.
+  // The single `apiKey` argument is the credential for the active provider;
+  // route it to the per-provider key field that `buildHeaders` reads via
+  // `getProviderKey()` (see src/lib/providers/registry.ts).
+  // - ollama: `apiKey` is actually the server URL (no Authorization header)
+  // - anthropic: routes through OpenRouter, so uses openrouterKey (not anthropicKey)
   const settings: Settings = {
     apiKey,
     model,
@@ -40,6 +46,10 @@ export async function generateTest(
     defaultMcqPercentage: config.mcqPercentage,
     defaultDifficulty: config.difficulty,
     provider,
+    ...(provider === 'openai' ? { openaiKey: apiKey } : {}),
+    ...(provider === 'anthropic' ? { openrouterKey: apiKey } : {}),
+    ...(provider === 'gemini' ? { geminiKey: apiKey } : {}),
+    ...(provider === 'ollama' ? { ollamaUrl: apiKey } : {}),
     ...(provider === 'openrouter' ? { openrouterKey: apiKey } : {}),
   };
 

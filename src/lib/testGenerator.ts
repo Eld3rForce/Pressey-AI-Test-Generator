@@ -1,6 +1,7 @@
 import { generateTest } from './api';
 import type { Test, TestConfig } from './types';
 import { createApiError, ErrorCodes } from './errorUtils';
+import { settingsStore } from './settingsStore.svelte';
 
 // ============================================================
 // Rich prompt construction
@@ -156,7 +157,8 @@ export async function generateFromPrompt(
   const fullPrompt = `${buildRichPrompt(config)}\n\nADDITIONAL CONTEXT / INSTRUCTIONS:\n${prompt}`;
 
   // Call the API (retries and JSON parsing handled internally)
-  const test = await generateTest(fullPrompt, config, apiKey, undefined, personalityPrompt);
+  const provider = settingsStore.settings.provider || 'openrouter';
+  const test = await generateTest(fullPrompt, config, apiKey, undefined, personalityPrompt, provider);
 
   // Validate the returned test structure against the config
   validateTestStructure(test, config);

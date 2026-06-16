@@ -356,6 +356,113 @@ describe('generateWithProvider', () => {
     });
   });
 
+  // -------- Per-provider Authorization header verification (T4 regression) --------
+
+  describe('Authorization header per provider (T4 regression)', () => {
+    it('openai: openaiKey is sent as Bearer', async () => {
+      const mockFetch = vi.fn().mockResolvedValueOnce(okResponse());
+      vi.stubGlobal('fetch', mockFetch);
+
+      const settings = makeSettings({
+        openaiKey: 'sk-test123',
+        anthropicKey: 'sk-anthropic-wrong',
+        geminiKey: 'sk-gemini-wrong',
+        openrouterKey: 'sk-or-wrong',
+      });
+
+      await generateWithProvider('openai', 'p', DEFAULT_CONFIG, settings);
+
+      const headers = mockFetch.mock.calls[0][1].headers;
+      expect(headers['Authorization']).toBe('Bearer sk-test123');
+    });
+
+    it('anthropic: openrouterKey is sent as Bearer (NOT anthropicKey)', async () => {
+      const mockFetch = vi.fn().mockResolvedValueOnce(okResponse());
+      vi.stubGlobal('fetch', mockFetch);
+
+      const settings = makeSettings({
+        anthropicKey: 'sk-anthropic-NEVER-USED',
+        openrouterKey: 'sk-or-test',
+        openaiKey: 'sk-openai-wrong',
+        geminiKey: 'sk-gemini-wrong',
+      });
+
+      await generateWithProvider('anthropic', 'p', DEFAULT_CONFIG, settings);
+
+      const headers = mockFetch.mock.calls[0][1].headers;
+      expect(headers['Authorization']).toBe('Bearer sk-or-test');
+      expect(headers['Authorization']).not.toContain('sk-anthropic');
+    });
+
+    it('gemini: geminiKey is sent as Bearer', async () => {
+      const mockFetch = vi.fn().mockResolvedValueOnce(okResponse());
+      vi.stubGlobal('fetch', mockFetch);
+
+      const settings = makeSettings({
+        geminiKey: 'sk-gemini-test',
+        openaiKey: 'sk-openai-wrong',
+        openrouterKey: 'sk-or-wrong',
+      });
+
+      await generateWithProvider('gemini', 'p', DEFAULT_CONFIG, settings);
+
+      const headers = mockFetch.mock.calls[0][1].headers;
+      expect(headers['Authorization']).toBe('Bearer sk-gemini-test');
+    });
+
+    it('ollama: NO Authorization header (local server, no auth)', async () => {
+      const mockFetch = vi.fn().mockResolvedValueOnce(okResponse());
+      vi.stubGlobal('fetch', mockFetch);
+
+      const settings = makeSettings({
+        ollamaUrl: 'http://localhost:11434',
+        openaiKey: 'sk-should-not-appear',
+        openrouterKey: 'sk-or-should-not-appear',
+      });
+
+      await generateWithProvider('ollama', 'p', DEFAULT_CONFIG, settings);
+
+      const headers = mockFetch.mock.calls[0][1].headers;
+      expect(headers['Authorization']).toBeUndefined();
+      expect(headers['Content-Type']).toBe('application/json');
+    });
+
+    it('openrouter: openrouterKey is sent as Bearer with HTTP-Referer/X-Title', async () => {
+      const mockFetch = vi.fn().mockResolvedValueOnce(okResponse());
+      vi.stubGlobal('fetch', mockFetch);
+
+      const settings = makeSettings({
+        openrouterKey: 'sk-or-final',
+        openaiKey: 'sk-openai-wrong',
+        anthropicKey: 'sk-anthropic-wrong',
+        geminiKey: 'sk-gemini-wrong',
+      });
+
+      await generateWithProvider('openrouter', 'p', DEFAULT_CONFIG, settings);
+
+      const headers = mockFetch.mock.calls[0][1].headers;
+      expect(headers['Authorization']).toBe('Bearer sk-or-final');
+      expect(headers['HTTP-Referer']).toBe('https://pressey.app');
+      expect(headers['X-Title']).toBe('Pressey AI Test Generator');
+    });
+
+    it('uses per-provider key even when legacy apiKey is also set to a different value', async () => {
+      const mockFetch = vi.fn().mockResolvedValueOnce(okResponse());
+      vi.stubGlobal('fetch', mockFetch);
+
+      const settings = makeSettings({
+        apiKey: 'sk-legacy-WRONG',
+        openaiKey: 'sk-per-provider-RIGHT',
+      });
+
+      await generateWithProvider('openai', 'p', DEFAULT_CONFIG, settings);
+
+      const headers = mockFetch.mock.calls[0][1].headers;
+      expect(headers['Authorization']).toBe('Bearer sk-per-provider-RIGHT');
+      expect(headers['Authorization']).not.toContain('sk-legacy');
+    });
+  });
+
   // -------- systemPrefix placement --------
 
   describe('system prefix handling', () => {

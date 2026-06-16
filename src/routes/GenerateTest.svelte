@@ -183,7 +183,10 @@
       difficulty,
       ...(topic.trim() ? { topic: topic.trim() } : {}),
     };
-    const apiKey = settingsStore.settings.apiKey;
+    // Use the per-provider key for the active provider (not the legacy apiKey)
+    // so the right credentials are sent for openai/anthropic/gemini/ollama/openrouter.
+    const activeProvider = settingsStore.settings.provider ?? 'openrouter';
+    const apiKey = getProviderKey(settingsStore.settings, activeProvider) ?? '';
 
     const personalityPrompt = buildPersonalityPrefix(
       settingsStore.settings.personality,
