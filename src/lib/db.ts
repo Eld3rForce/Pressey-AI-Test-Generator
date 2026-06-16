@@ -1,4 +1,5 @@
 import Database from '@tauri-apps/plugin-sql';
+import { appLocalDataDir, join } from '@tauri-apps/api/path';
 
 let dbInstance: Database | null = null;
 
@@ -12,7 +13,9 @@ export async function initDatabase(): Promise<Database> {
       return dbInstance;
     }
 
-    dbInstance = await Database.load('sqlite:pressey.db');
+    const appDir = await appLocalDataDir();
+    const dbPath = await join(appDir, 'pressey.db');
+    dbInstance = await Database.load(`sqlite:${dbPath}`);
     await runMigrations(dbInstance);
     return dbInstance;
   } catch (error) {

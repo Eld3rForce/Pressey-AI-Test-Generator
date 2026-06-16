@@ -11,6 +11,11 @@ vi.mock('@tauri-apps/plugin-sql', () => ({
   default: Object.assign(vi.fn(), { load: mockLoad }),
 }));
 
+vi.mock('@tauri-apps/api/path', () => ({
+  appLocalDataDir: () => Promise.resolve('/fake/app/dir'),
+  join: (...segments: string[]) => Promise.resolve(segments.join('/')),
+}));
+
 import type Database from '@tauri-apps/plugin-sql';
 import { initDatabase, runMigrations, _resetForTest } from './db';
 
@@ -33,7 +38,7 @@ describe('initDatabase', () => {
 
   it('loads the database with the correct SQLite path', async () => {
     await initDatabase();
-    expect(mockLoad).toHaveBeenCalledWith('sqlite:pressey.db');
+    expect(mockLoad).toHaveBeenCalledWith('sqlite:/fake/app/dir/pressey.db');
   });
 
   it('creates all 7 tables (schema_version + 6 app tables) on fresh install', async () => {

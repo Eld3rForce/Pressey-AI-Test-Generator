@@ -1,0 +1,25 @@
+Task 2: Fix src/lib/db.ts to use absolute database path via appLocalDataDir()
+===========================================================================
+Date: 2026-06-16 15:08
+
+Changes made:
+1. src/lib/db.ts
+   - Added import: import { appLocalDataDir, join } from '@tauri-apps/api/path'
+   - Replaced hardcoded `Database.load('sqlite:pressey.db')` with:
+     ```typescript
+     const appDir = await appLocalDataDir();
+     const dbPath = await join(appDir, 'pressey.db');
+     dbInstance = await Database.load(`sqlite:${dbPath}`);
+     ```
+
+2. src/lib/db.test.ts
+   - Added mock for @tauri-apps/api/path (appLocalDataDir + join)
+   - Updated assertion to expect 'sqlite:/fake/app/dir/pressey.db'
+
+Verification:
+- grep -n 'appLocalDataDir\|join' src/lib/db.ts:
+  Line 2:  import { appLocalDataDir, join } from '@tauri-apps/api/path';
+  Line 16: const appDir = await appLocalDataDir();
+  Line 17: const dbPath = await join(appDir, 'pressey.db');
+
+- npm test: 28 test files passed, 565 tests passed, 2 skipped (same pre-existing skips)
