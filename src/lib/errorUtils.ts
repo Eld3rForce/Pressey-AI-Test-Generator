@@ -256,7 +256,7 @@ const USER_MESSAGES: Record<string, string> = {
   [ErrorCodes.DB_QUERY_ERROR]:
     'A database error occurred. Please try again.',
   [ErrorCodes.DB_INIT_ERROR]:
-    'Failed to initialize the database. Please restart the application.',
+    'Failed to initialize the database. The SQLite driver may not be installed or the database file may be inaccessible. Please check the application logs for details, then restart the application.',
 
   // Input validation errors
   [ErrorCodes.INPUT_API_KEY_EMPTY]:

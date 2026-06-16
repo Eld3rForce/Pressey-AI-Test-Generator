@@ -1,0 +1,18 @@
+Task: task-4-error-message
+File: src/lib/errorUtils.ts
+Change: Updated DB_INIT_ERROR user-facing message to be more diagnostic
+
+Old:
+  [ErrorCodes.DB_INIT_ERROR]:
+    'Failed to initialize the database. Please restart the application.'
+
+New:
+  [ErrorCodes.DB_INIT_ERROR]:
+    'Failed to initialize the database. The SQLite driver may not be installed or the database file may be inaccessible. Please check the application logs for details, then restart the application.'
+
+Status: Complete
+- Edit applied successfully
+- All other USER_MESSAGES entries unchanged
+- ErrorCodes.DB_INIT_ERROR and ApiError types unchanged
+- errorHandling.test.ts (127 tests) all passed
+- Pre-existing Tauri env failures in db.test.ts unchanged
