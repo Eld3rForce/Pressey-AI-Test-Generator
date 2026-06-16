@@ -74,8 +74,8 @@ function createValidTest(overrides?: Partial<Test>): Test {
 // ============================================================
 
 describe('PERSONALITIES', () => {
-  it('should have exactly 5 pre-defined personalities', () => {
-    expect(PERSONALITIES).toHaveLength(5);
+  it('should have exactly 6 pre-defined personalities', () => {
+    expect(PERSONALITIES).toHaveLength(6);
   });
 
   it('each personality should have id, name, description, and systemPrompt', () => {
@@ -100,6 +100,7 @@ describe('PERSONALITIES', () => {
     expect(ids).toContain('encouraging-coach');
     expect(ids).toContain('socratic-guide');
     expect(ids).toContain('concise-expert');
+    expect(ids).toContain('snarky-tutor');
   });
 
   it('should not have duplicate ids', () => {
@@ -185,6 +186,19 @@ describe('buildPersonalityPrefix', () => {
 
   it('should return empty string for unknown personalityId', () => {
     expect(buildPersonalityPrefix('unknown-personality')).toBe('');
+  });
+
+  it('buildPersonalityPrefix(\'snarky-tutor\') should return a non-empty string starting with "You are"', () => {
+    const result = buildPersonalityPrefix('snarky-tutor');
+    expect(result).toBeTruthy();
+    expect(result.startsWith('You are')).toBe(true);
+  });
+
+  it('buildPersonalityPrefix(\'snarky-tutor\') should contain snarky/sarcastic content', () => {
+    const result = buildPersonalityPrefix('snarky-tutor');
+    expect(result.length).toBeGreaterThan(50);
+    const snarky = getPersonality('snarky-tutor')!;
+    expect(result).toBe(snarky.systemPrompt);
   });
 });
 
