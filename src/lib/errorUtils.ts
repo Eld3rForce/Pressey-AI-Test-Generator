@@ -61,6 +61,11 @@ export const ErrorCodes = {
   PROVIDER_INVALID: 'PROVIDER_INVALID',
   PROVIDER_KEY_MISSING: 'PROVIDER_KEY_MISSING',
 
+  // Research / web search errors
+  RESEARCH_FETCH_FAILED: 'RESEARCH_FETCH_FAILED',
+  RESEARCH_PARSE_FAILED: 'RESEARCH_PARSE_FAILED',
+  RESEARCH_NO_RESULTS: 'RESEARCH_NO_RESULTS',
+
   // Generic
   UNKNOWN_ERROR: 'UNKNOWN_ERROR',
 } as const;
@@ -296,6 +301,14 @@ const USER_MESSAGES: Record<string, string> = {
     'An MCQ answer does not match any of the provided options. Please try again.',
   [ErrorCodes.TEST_MISSING_EXPLANATION]:
     'A generated question is missing an explanation. Please try again.',
+
+  // Research / web search errors
+  [ErrorCodes.RESEARCH_FETCH_FAILED]:
+    'Web search is currently unavailable. Continuing without web research.',
+  [ErrorCodes.RESEARCH_PARSE_FAILED]:
+    'Could not parse web search results. Continuing without web research.',
+  [ErrorCodes.RESEARCH_NO_RESULTS]:
+    'No web search results were found. Continuing without web research.',
 };
 
 /**

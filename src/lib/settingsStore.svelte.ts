@@ -25,6 +25,9 @@ const defaults: Settings = {
   openrouterKey: '',
   includeMcq: true,
   includeText: true,
+  enableResearch: false,
+  researchMaxResults: 5,
+  researchMaxSnippetChars: 800,
 };
 
 class SettingsStore {

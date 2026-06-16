@@ -93,6 +93,9 @@ export interface Settings {
   openrouterKey?: string;
   includeMcq?: boolean;
   includeText?: boolean;
+  enableResearch?: boolean;
+  researchMaxResults?: number;
+  researchMaxSnippetChars?: number;
 }
 
 // --- OpenRouter API Types ---
