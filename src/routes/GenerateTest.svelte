@@ -1,10 +1,11 @@
 <script lang="ts">
   import { generateFromPrompt, generateFromFile } from '../lib/testGenerator';
-  import { validateToggles } from '../lib/errorUtils';
+  import { validateToggles, mapApiError, validatePrompt, validateApiKey } from '../lib/errorUtils';
   import { uploadFile } from '../lib/fileUpload';
   import { createTest } from '../lib/dbService';
   import { settingsStore } from '../lib/settingsStore.svelte';
   import { buildPersonalityPrefix } from '../lib/personalities';
+  import Tooltip from '../components/Tooltip.svelte';
   import type { Test, Question, TestConfig } from '../lib/types';
 
   // ── Form state ──────────────────────────────────────────────────
@@ -13,6 +14,11 @@
   let questionCount = $state(10);
   let mcqPercentage = $state(70);
   let difficulty = $state<'Easy' | 'Medium' | 'Hard'>('Medium');
+  // Question type toggles — when only one is on, mcqPercentage slider is hidden
+  // and all generated questions are forced to that type.
+  let includeMcq = $state(true);
+  let includeText = $state(true);
+  let toggleError = $state<string | null>(null);
 
   // ── File state ──────────────────────────────────────────────────
   let selectedFile = $state<{
@@ -45,8 +51,17 @@
 
   // ── Derived ─────────────────────────────────────────────────────
   const hasInput = $derived(prompt.trim() !== '' || selectedFile !== null);
+  // Toggles valid = at least one of MCQ / text is selected. Re-checked at
+  // submit time via validateToggles so we surface the API-friendly error
+  // string; the derived just gates the button.
+  const togglesValid = $derived(validateToggles(includeMcq, includeText).valid);
+  const showMcqSlider = $derived(includeMcq && includeText);
   const canGenerate = $derived(
-    !generating && !saving && hasInput && !!settingsStore.settings.apiKey
+    !generating &&
+      !saving &&
+      hasInput &&
+      !!settingsStore.settings.apiKey &&
+      togglesValid
   );
   const canSave = $derived(
     !saving && !generating && generatedTest !== null && editableQuestions.length > 0
@@ -113,41 +128,57 @@
 
   // ── Generate ────────────────────────────────────────────────────
   async function handleGenerate() {
-    if (!canGenerate) return;
     apiError = null;
     saveMessage = null;
     savedTestId = null;
     generatedTest = null;
     editableQuestions = [];
     editedTitle = '';
-    generating = true;
 
-    // Input validation before making API call
+    // Input validation before making API call. We always run these checks so
+    // a click on the button surfaces a helpful error even when canGenerate
+    // is false (e.g. toggles both off → show "Select at least one").
     const promptValidation = validatePrompt(prompt.trim(), selectedFile !== null);
     if (!promptValidation.valid && promptValidation.error) {
       apiError = promptValidation.error.message;
-      generating = false;
       return;
     }
 
     const apiKeyValidation = validateApiKey(settingsStore.settings.apiKey);
     if (!apiKeyValidation.valid && apiKeyValidation.error) {
       apiError = apiKeyValidation.error.message;
-      generating = false;
       return;
     }
 
-    // Toggle validation — derived from mcqPercentage until toggle UI is added
-    const togglesValidation = validateToggles(mcqPercentage > 0, mcqPercentage < 100);
+    // Toggle validation — must have at least one question type selected.
+    // Update the inline toggle error so the UI shows the message next to the
+    // toggles in addition to (or instead of) the global apiError.
+    const togglesValidation = validateToggles(includeMcq, includeText);
     if (!togglesValidation.valid && togglesValidation.error) {
+      toggleError = togglesValidation.error.message;
       apiError = togglesValidation.error.message;
-      generating = false;
       return;
     }
+    toggleError = null;
+
+    if (!canGenerate) return;
+    generating = true;
+
+    // Effective MCQ percentage: when only one toggle is on, force the split
+    // to 100% of the active type so downstream code never sees an inconsistent
+    // (e.g. mcq=70 with text=off) configuration.
+    const effectiveMcqPct = !includeText
+      ? 100
+      : !includeMcq
+        ? 0
+        : clampMcq(mcqPercentage);
 
     const config: TestConfig = {
       questionCount: clampCount(questionCount),
-      mcqPercentage: clampMcq(mcqPercentage),
+      mcqPercentage: effectiveMcqPct,
+      includeMcq,
+      includeText,
+      provider: settingsStore.settings.provider,
       difficulty,
       ...(topic.trim() ? { topic: topic.trim() } : {}),
     };
@@ -330,22 +361,86 @@
       </div>
 
       <div>
-        <div class="flex items-baseline justify-between mb-2">
-          <label class="micro-label" for="mcq-percentage-slider">MCQ %</label>
-          <span class="font-mono text-sm text-foreground">{clampMcq(mcqPercentage)}%</span>
+        <span class="micro-label mb-2 block">Question Types</span>
+        <div class="space-y-2">
+          <label
+            class="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-background/30 cursor-pointer transition hover:border-accent/40"
+            class:opacity-60={!includeMcq}
+            for="toggle-mcq"
+          >
+            <Tooltip text="MCQ = Multiple Choice Questions">
+              <span class="text-sm text-foreground font-medium">Multiple Choice</span>
+            </Tooltip>
+            <span class="toggle-switch" data-on={includeMcq}>
+              <input
+                id="toggle-mcq"
+                data-testid="toggle-mcq"
+                type="checkbox"
+                role="switch"
+                bind:checked={includeMcq}
+                class="sr-only peer"
+              />
+              <span class="toggle-track" aria-hidden="true">
+                <span class="toggle-thumb"></span>
+              </span>
+            </span>
+          </label>
+
+          <label
+            class="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-background/30 cursor-pointer transition hover:border-accent/40"
+            class:opacity-60={!includeText}
+            for="toggle-text"
+          >
+            <span class="text-sm text-foreground font-medium">Open Response</span>
+            <span class="toggle-switch" data-on={includeText}>
+              <input
+                id="toggle-text"
+                data-testid="toggle-text"
+                type="checkbox"
+                role="switch"
+                bind:checked={includeText}
+                class="sr-only peer"
+              />
+              <span class="toggle-track" aria-hidden="true">
+                <span class="toggle-thumb"></span>
+              </span>
+            </span>
+          </label>
         </div>
-        <input
-          id="mcq-percentage-slider"
-          type="range"
-          min="0"
-          max="100"
-          value={mcqPercentage}
-          oninput={(e) => (mcqPercentage = clampMcq(Number((e.currentTarget as HTMLInputElement).value)))}
-          class="w-full accent-primary cursor-pointer"
-        />
-        <div class="flex justify-between text-[10px] font-mono text-muted-foreground/60 mt-1">
-          <span>0</span><span>50</span><span>100</span>
-        </div>
+
+        {#if toggleError}
+          <p
+            data-testid="toggle-error"
+            class="mt-2 text-xs text-destructive font-mono"
+            role="alert"
+          >
+            {toggleError}
+          </p>
+        {/if}
+
+        {#if showMcqSlider}
+          <div class="mt-4">
+            <div class="flex items-baseline justify-between mb-2">
+              <Tooltip text="MCQ = Multiple Choice Questions">
+                <label class="micro-label" for="mcq-percentage-slider">MCQ %</label>
+              </Tooltip>
+              <span class="font-mono text-sm text-foreground">{clampMcq(mcqPercentage)}%</span>
+            </div>
+            <input
+              id="mcq-percentage-slider"
+              data-testid="mcq-percentage-slider"
+              type="range"
+              min="0"
+              max="100"
+              value={mcqPercentage}
+              oninput={(e) => (mcqPercentage = clampMcq(Number((e.currentTarget as HTMLInputElement).value)))}
+              class="w-full accent-primary cursor-pointer"
+            />
+            <div class="flex justify-between text-[10px] font-mono text-muted-foreground/60 mt-1">
+              <span>0</span><span>50</span><span>100</span>
+            </div>
+          </div>
+        {/if}
       </div>
 
       <div>
@@ -436,13 +531,23 @@
       <span class="inline-block w-1.5 h-1.5 rounded-full bg-primary"></span>
       Ready to generate
     </span>
-    <span class="text-[10px]">{clampCount(questionCount)} Q · {clampMcq(mcqPercentage)}% MCQ · {difficulty}</span>
+    <span class="text-[10px]">
+      {clampCount(questionCount)} Q ·
+      {#if includeMcq && includeText}
+        {clampMcq(mcqPercentage)}% MCQ
+      {:else if includeMcq}
+        MCQ only
+      {:else}
+        Open Response only
+      {/if}
+      · {difficulty}
+    </span>
   </div>
 
   <button
     type="button"
     onclick={handleGenerate}
-    disabled={!canGenerate}
+    disabled={generating}
     class="w-full py-3.5 rounded-lg bg-primary text-primary-foreground font-display font-semibold text-lg tracking-wide hover:brightness-110 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100 transition shadow-lg shadow-primary/20"
   >
     {#if generating}
@@ -651,5 +756,59 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+
+  /* ── Toggle switch (question type toggles) ─────────────────────── */
+  .toggle-switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .toggle-track {
+    display: inline-block;
+    width: 2.25rem;
+    height: 1.25rem;
+    border-radius: 9999px;
+    background-color: var(--color-muted);
+    border: 1px solid var(--color-border);
+    position: relative;
+    transition:
+      background-color 0.18s ease,
+      border-color 0.18s ease;
+  }
+
+  .toggle-thumb {
+    position: absolute;
+    top: 50%;
+    left: 2px;
+    transform: translateY(-50%);
+    width: 0.95rem;
+    height: 0.95rem;
+    border-radius: 9999px;
+    background-color: var(--color-foreground);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.4);
+    transition: transform 0.18s ease;
+  }
+
+  /* ON state — driven by the [data-on] attribute on the wrapper so we don't
+     depend on :has() / :checked sibling selectors, which keeps the CSS
+     portable and works without a Svelte preprocessing quirk. */
+  .toggle-switch[data-on='true'] .toggle-track {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+
+  .toggle-switch[data-on='true'] .toggle-thumb {
+    transform: translate(1rem, -50%);
+    background-color: var(--color-primary-foreground);
+  }
+
+  /* Keyboard focus ring on the underlying <input> (visually hidden) */
+  .toggle-switch input:focus-visible + .toggle-track {
+    box-shadow:
+      0 0 0 2px var(--color-background),
+      0 0 0 4px var(--color-accent);
   }
 </style>

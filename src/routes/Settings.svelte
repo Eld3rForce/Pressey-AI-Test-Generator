@@ -2,6 +2,7 @@
   import SettingsForm from '../components/SettingsForm.svelte';
   import { settingsStore } from '../lib/settingsStore.svelte';
   import { mapApiError } from '../lib/errorUtils';
+  import Tooltip from '../components/Tooltip.svelte';
   import Save from 'lucide-svelte/icons/save';
   import RotateCcw from 'lucide-svelte/icons/rotate-ccw';
   import Check from 'lucide-svelte/icons/check';
@@ -17,6 +18,8 @@
   let difficulty = $state<'Easy' | 'Medium' | 'Hard'>('Medium');
   let theme = $state<'dark' | 'light'>('dark');
   let accent = $state<'amber' | 'cyan' | 'magenta'>('amber');
+  let includeMcq = $state(true);
+  let includeText = $state(true);
 
   // ── Action state ──────────────────────────────────────────────────
   let saving = $state(false);
@@ -35,6 +38,8 @@
       questionCount = settingsStore.settings.defaultQuestionCount;
       mcqPercentage = settingsStore.settings.defaultMcqPercentage;
       difficulty = settingsStore.settings.defaultDifficulty;
+      includeMcq = settingsStore.settings.includeMcq ?? false;
+      includeText = settingsStore.settings.includeText ?? false;
     });
   });
 
@@ -80,6 +85,8 @@
         defaultDifficulty: difficulty,
         personality: settingsStore.settings.personality,
         customInstructions: settingsStore.settings.customInstructions,
+        includeMcq,
+        includeText,
       });
       await settingsStore.updateSetting('theme', theme);
       await settingsStore.updateSetting('accent', accent);
@@ -110,6 +117,8 @@
       difficulty = 'Medium';
       theme = 'dark';
       accent = 'amber';
+      includeMcq = true;
+      includeText = true;
       showResetConfirm = false;
       showToast('Settings reset to defaults');
     } finally {
@@ -194,21 +203,59 @@
         </div>
       </div>
 
-      <div class="space-y-1.5">
-        <div class="flex items-baseline justify-between">
-          <label class="micro-label" for="default-mcq-slider">Default MCQ %</label>
-          <span class="font-mono text-sm text-foreground">{clampMcq(mcqPercentage)}%</span>
+      {#if includeMcq && includeText}
+        <div class="space-y-1.5">
+          <div class="flex items-baseline justify-between">
+            <label class="micro-label" for="default-mcq-slider">Default MCQ %</label>
+            <span class="font-mono text-sm text-foreground">{clampMcq(mcqPercentage)}%</span>
+          </div>
+          <input
+            id="default-mcq-slider"
+            type="range"
+            min="0"
+            max="100"
+            bind:value={mcqPercentage}
+            class="w-full accent-primary cursor-pointer"
+          />
+          <div class="flex justify-between font-mono text-[10px] text-muted-foreground/60">
+            <span>0</span><span>50</span><span>100</span>
+          </div>
         </div>
-        <input
-          id="default-mcq-slider"
-          type="range"
-          min="0"
-          max="100"
-          bind:value={mcqPercentage}
-          class="w-full accent-primary cursor-pointer"
-        />
-        <div class="flex justify-between font-mono text-[10px] text-muted-foreground/60">
-          <span>0</span><span>50</span><span>100</span>
+      {/if}
+
+      <div class="sm:col-span-2 space-y-3" data-testid="question-type-toggles">
+        <span class="micro-label block">Question Types</span>
+        <div class="flex flex-wrap gap-6">
+          <label class="flex cursor-pointer items-center gap-3" for="include-mcq">
+            <span class="toggle-switch" data-on={includeMcq}>
+              <input
+                type="checkbox"
+                id="include-mcq"
+                data-testid="include-mcq-toggle"
+                role="switch"
+                bind:checked={includeMcq}
+                class="sr-only"
+              />
+              <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+            </span>
+            <Tooltip text="MCQ = Multiple Choice Questions">
+              <span class="text-sm font-medium text-foreground">MCQ</span>
+            </Tooltip>
+          </label>
+          <label class="flex cursor-pointer items-center gap-3" for="include-text">
+            <span class="toggle-switch" data-on={includeText}>
+              <input
+                type="checkbox"
+                id="include-text"
+                data-testid="include-text-toggle"
+                role="switch"
+                bind:checked={includeText}
+                class="sr-only"
+              />
+              <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+            </span>
+            <span class="text-sm font-medium text-foreground">Open Response</span>
+          </label>
         </div>
       </div>
 
@@ -279,7 +326,7 @@
       <div class="space-y-1.5">
         <span class="micro-label block">Accent</span>
         <div class="flex items-center gap-3">
-          {#each ['amber', 'cyan', 'magenta'] as a (a)}
+          {#each ['amber', 'cyan', 'magenta'] as const as a (a)}
             {@const isActive = accent === a}
             <button
               type="button"
@@ -338,7 +385,7 @@
       </div>
       <div class="flex items-center justify-between rounded-lg bg-background/30 px-4 py-2.5 ring-1 ring-border">
         <dt class="micro-label">Provider</dt>
-        <dd class="font-mono text-sm text-foreground">OpenRouter</dd>
+        <dd class="font-mono text-sm text-foreground">{settingsStore.settings.provider}</dd>
       </div>
       <div class="flex items-center justify-between rounded-lg bg-background/30 px-4 py-2.5 ring-1 ring-border">
         <dt class="micro-label">Runtime</dt>
@@ -476,5 +523,45 @@
       opacity: 1;
       transform: translateY(0) scale(1);
     }
+  }
+
+  /* ── Toggle switch (question type toggles) ─────────────────────── */
+  .toggle-switch {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+  }
+
+  .toggle-track {
+    width: 2.25rem;
+    height: 1.25rem;
+    background: var(--color-border);
+    border-radius: 999px;
+    position: relative;
+    transition: background 0.2s;
+  }
+
+  .toggle-thumb {
+    width: 1rem;
+    height: 1rem;
+    background: var(--color-foreground);
+    border-radius: 50%;
+    position: absolute;
+    top: 0.125rem;
+    left: 0.125rem;
+    transition: transform 0.2s;
+  }
+
+  .toggle-switch[data-on='true'] .toggle-track {
+    background: var(--color-primary);
+  }
+
+  .toggle-switch[data-on='true'] .toggle-thumb {
+    transform: translateX(1rem);
+  }
+
+  .toggle-switch input:focus-visible + .toggle-track {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
 </style>
