@@ -556,6 +556,18 @@ export async function getSettings(): Promise<Settings> {
         DEFAULT_SETTINGS.defaultDifficulty,
       personality: map.get('personality') ?? undefined,
       customInstructions: map.get('customInstructions') ?? undefined,
+      provider: (map.get('provider') as Settings['provider']) ?? undefined,
+      openaiKey: map.get('openaiKey') ?? undefined,
+      anthropicKey: map.get('anthropicKey') ?? undefined,
+      geminiKey: map.get('geminiKey') ?? undefined,
+      ollamaUrl: map.get('ollamaUrl') ?? undefined,
+      openrouterKey: map.get('openrouterKey') ?? undefined,
+      includeMcq: map.has('includeMcq')
+        ? map.get('includeMcq') === 'true'
+        : undefined,
+      includeText: map.has('includeText')
+        ? map.get('includeText') === 'true'
+        : undefined,
     };
   } catch (error) {
     console.error('getSettings failed:', error);

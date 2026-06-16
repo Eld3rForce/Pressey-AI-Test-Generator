@@ -720,6 +720,120 @@ describe('getSettings', () => {
     expect(settings.defaultQuestionCount).toBe(10); // default
   });
 
+  it('returns openaiKey when stored via saveSetting', async () => {
+    await saveSetting('openaiKey', 'sk-openai-test');
+    mockSelect.mockResolvedValueOnce([{ key: 'openaiKey', value: 'sk-openai-test' }]);
+
+    const settings = await getSettings();
+    expect(settings.openaiKey).toBe('sk-openai-test');
+  });
+
+  it('returns anthropicKey when stored via saveSetting', async () => {
+    await saveSetting('anthropicKey', 'sk-anthropic-test');
+    mockSelect.mockResolvedValueOnce([{ key: 'anthropicKey', value: 'sk-anthropic-test' }]);
+
+    const settings = await getSettings();
+    expect(settings.anthropicKey).toBe('sk-anthropic-test');
+  });
+
+  it('returns geminiKey when stored via saveSetting', async () => {
+    await saveSetting('geminiKey', 'sk-gemini-test');
+    mockSelect.mockResolvedValueOnce([{ key: 'geminiKey', value: 'sk-gemini-test' }]);
+
+    const settings = await getSettings();
+    expect(settings.geminiKey).toBe('sk-gemini-test');
+  });
+
+  it('returns ollamaUrl when stored via saveSetting', async () => {
+    await saveSetting('ollamaUrl', 'http://localhost:11434');
+    mockSelect.mockResolvedValueOnce([{ key: 'ollamaUrl', value: 'http://localhost:11434' }]);
+
+    const settings = await getSettings();
+    expect(settings.ollamaUrl).toBe('http://localhost:11434');
+  });
+
+  it('returns openrouterKey when stored via saveSetting', async () => {
+    await saveSetting('openrouterKey', 'sk-openrouter-test');
+    mockSelect.mockResolvedValueOnce([{ key: 'openrouterKey', value: 'sk-openrouter-test' }]);
+
+    const settings = await getSettings();
+    expect(settings.openrouterKey).toBe('sk-openrouter-test');
+  });
+
+  it('returns provider when stored via saveSetting', async () => {
+    await saveSetting('provider', 'openai');
+    mockSelect.mockResolvedValueOnce([{ key: 'provider', value: 'openai' }]);
+
+    const settings = await getSettings();
+    expect(settings.provider).toBe('openai');
+  });
+
+  it('returns includeMcq parsed as boolean', async () => {
+    await saveSetting('includeMcq', 'true');
+    mockSelect.mockResolvedValueOnce([{ key: 'includeMcq', value: 'true' }]);
+
+    const settings = await getSettings();
+    expect(settings.includeMcq).toBe(true);
+  });
+
+  it('returns includeText parsed as boolean', async () => {
+    await saveSetting('includeText', 'false');
+    mockSelect.mockResolvedValueOnce([{ key: 'includeText', value: 'false' }]);
+
+    const settings = await getSettings();
+    expect(settings.includeText).toBe(false);
+  });
+
+  it('returns legacy apiKey AND per-provider keys together', async () => {
+    await saveSetting('apiKey', 'sk-legacy');
+    await saveSetting('openaiKey', 'sk-openai');
+    await saveSetting('anthropicKey', 'sk-anthropic');
+    await saveSetting('geminiKey', 'sk-gemini');
+    await saveSetting('ollamaUrl', 'http://localhost:11434');
+    await saveSetting('openrouterKey', 'sk-openrouter');
+    await saveSetting('provider', 'anthropic');
+    await saveSetting('includeMcq', 'true');
+    await saveSetting('includeText', 'false');
+    mockSelect.mockResolvedValueOnce([
+      { key: 'apiKey', value: 'sk-legacy' },
+      { key: 'openaiKey', value: 'sk-openai' },
+      { key: 'anthropicKey', value: 'sk-anthropic' },
+      { key: 'geminiKey', value: 'sk-gemini' },
+      { key: 'ollamaUrl', value: 'http://localhost:11434' },
+      { key: 'openrouterKey', value: 'sk-openrouter' },
+      { key: 'provider', value: 'anthropic' },
+      { key: 'includeMcq', value: 'true' },
+      { key: 'includeText', value: 'false' },
+    ]);
+
+    const settings = await getSettings();
+
+    expect(settings.apiKey).toBe('sk-legacy');
+    expect(settings.openaiKey).toBe('sk-openai');
+    expect(settings.anthropicKey).toBe('sk-anthropic');
+    expect(settings.geminiKey).toBe('sk-gemini');
+    expect(settings.ollamaUrl).toBe('http://localhost:11434');
+    expect(settings.openrouterKey).toBe('sk-openrouter');
+    expect(settings.provider).toBe('anthropic');
+    expect(settings.includeMcq).toBe(true);
+    expect(settings.includeText).toBe(false);
+  });
+
+  it('returns undefined for missing per-provider keys (not empty string)', async () => {
+    mockSelect.mockResolvedValueOnce([]);
+
+    const settings = await getSettings();
+
+    expect(settings.openaiKey).toBeUndefined();
+    expect(settings.anthropicKey).toBeUndefined();
+    expect(settings.geminiKey).toBeUndefined();
+    expect(settings.ollamaUrl).toBeUndefined();
+    expect(settings.openrouterKey).toBeUndefined();
+    expect(settings.provider).toBeUndefined();
+    expect(settings.includeMcq).toBeUndefined();
+    expect(settings.includeText).toBeUndefined();
+  });
+
   it('propagates database errors', async () => {
     mockSelect.mockRejectedValueOnce(new Error('Settings error'));
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
