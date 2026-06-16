@@ -1,0 +1,24 @@
+Task 5 - Version Bump 0.2.0 ? 0.2.1
+====================================
+Date: 2026-06-16 15:08:30
+
+Version check - 0.2.0 in manifests (should be empty):
+
+
+Version check - Current versions in manifests:
+
+package.json:4:  "version": "0.2.1",
+src-tauri\tauri.conf.json:4:  "version": "0.2.1",
+
+
+
+
+Lockfile 0.2.1 occurrences: 7
+
+Git log:
+482419a chore(release): update package-lock.json for 0.2.1 6177164 chore(release): bump version to 0.2.1 322e687 fix(cargo): enable sqlite feature for tauri-plugin-sql 766a80e fix(quality): resolve F2 type and lint errors
+
+Git diff --stat (from HEAD~2):
+ package-lock.json         | 4 ++--  package.json              | 2 +-  src-tauri/Cargo.toml      | 2 +-  src-tauri/tauri.conf.json | 2 +-  4 files changed, 5 insertions(+), 5 deletions(-)
+
+Cargo.toml: version = "0.2.1"
