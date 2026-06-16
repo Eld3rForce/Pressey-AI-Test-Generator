@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { generateFromPrompt, generateFromFile } from './testGenerator';
 import type { Test, TestConfig } from './types';
 
@@ -11,6 +11,48 @@ vi.mock('./api', () => ({
 }));
 
 import { generateTest } from './api';
+
+// ============================================================
+// Mock settingsStore (mutable settings for research flag tests)
+// vi.mock factories are hoisted above module-scope `const`, so we use
+// vi.hoisted() to create the shared mutable settings object.
+// ============================================================
+
+const { mockSettings } = vi.hoisted(() => ({
+  mockSettings: {
+    apiKey: '',
+    model: 'openai/gpt-4o',
+    defaultQuestionCount: 10,
+    defaultMcqPercentage: 70,
+    defaultDifficulty: 'Medium' as const,
+    personality: 'none',
+    customInstructions: '',
+    provider: 'openrouter' as const,
+    openaiKey: '',
+    anthropicKey: '',
+    geminiKey: '',
+    ollamaUrl: 'http://localhost:11434',
+    openrouterKey: '',
+    includeMcq: true,
+    includeText: true,
+    enableResearch: false,
+    researchMaxResults: 5,
+    researchMaxSnippetChars: 800,
+  },
+}));
+
+vi.mock('./settingsStore.svelte', () => ({
+  settingsStore: {
+    settings: mockSettings,
+    loaded: true,
+    error: null,
+    loadSettings: vi.fn().mockResolvedValue(undefined),
+    saveSettings: vi.fn().mockResolvedValue(undefined),
+    updateSetting: vi.fn().mockResolvedValue(undefined),
+    testApiConnection: vi.fn().mockResolvedValue(true),
+    resetToDefaults: vi.fn(),
+  },
+}));
 
 // ============================================================
 // Test data
@@ -530,5 +572,131 @@ describe('generateFromFile', () => {
     await expect(
       generateFromFile('Content', 'doc.txt', DEFAULT_CONFIG, TEST_API_KEY)
     ).rejects.toThrow('must have exactly 4 options');
+  });
+});
+
+// ============================================================
+// Research integration tests (opt-in settings flag)
+// ============================================================
+
+const VALID_DDG_HTML = `
+<!DOCTYPE html>
+<html>
+<body>
+  <div class="result">
+    <h2 class="result__title">
+      <a class="result__a" href="https://example.com/js-closures">Closures in JavaScript</a>
+    </h2>
+    <a class="result__snippet" href="https://example.com/js-closures">
+      Closures capture variables from their outer lexical scope and are a fundamental JavaScript concept.
+    </a>
+  </div>
+  <div class="result">
+    <h2 class="result__title">
+      <a class="result__a" href="https://example.com/js-promises">Promises Explained</a>
+    </h2>
+    <a class="result__snippet" href="https://example.com/js-promises">
+      A Promise represents a value that may be available now, later, or never in asynchronous code.
+    </a>
+  </div>
+</body>
+</html>
+`;
+
+function makeDdgFetchMock(): ReturnType<typeof vi.fn> {
+  return vi.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    text: () => Promise.resolve(VALID_DDG_HTML),
+  });
+}
+
+describe('research integration', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSettings.enableResearch = false;
+    mockSettings.researchMaxResults = 5;
+    mockSettings.researchMaxSnippetChars = 800;
+    fetchMock = makeDdgFetchMock();
+    vi.stubGlobal('fetch', fetchMock);
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('does not call fetch when enableResearch is false', async () => {
+    vi.mocked(generateTest).mockResolvedValueOnce(createValidTest());
+    mockSettings.enableResearch = false;
+
+    await generateFromPrompt('Focus on closures', DEFAULT_CONFIG, TEST_API_KEY);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    const [prompt] = vi.mocked(generateTest).mock.calls[0];
+    expect(prompt).not.toContain('RESEARCH CONTEXT:');
+  });
+
+  it('appends RESEARCH CONTEXT block with web snippet when enableResearch is true', async () => {
+    vi.mocked(generateTest).mockResolvedValueOnce(createValidTest());
+    mockSettings.enableResearch = true;
+
+    await generateFromPrompt('Focus on closures', DEFAULT_CONFIG, TEST_API_KEY);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const calledUrl = String(fetchMock.mock.calls[0][0]);
+    expect(calledUrl).toContain(encodeURIComponent('JavaScript'));
+
+    const [prompt] = vi.mocked(generateTest).mock.calls[0];
+    expect(prompt).toContain('ADDITIONAL CONTEXT / INSTRUCTIONS');
+    expect(prompt).toContain('RESEARCH CONTEXT:');
+    expect(prompt).toContain('--- Web Results ---');
+    expect(prompt).toContain('[Web 1] Closures in JavaScript');
+    expect(prompt).toContain('lexical scope');
+    expect(prompt).toContain('Source: https://example.com/js-closures');
+
+    const addIdx = prompt.indexOf('ADDITIONAL CONTEXT / INSTRUCTIONS');
+    const researchIdx = prompt.indexOf('RESEARCH CONTEXT:');
+    expect(researchIdx).toBeGreaterThan(addIdx);
+  });
+
+  it('passes file content as uploaded text for document search in generateFromFile', async () => {
+    vi.mocked(generateTest).mockResolvedValueOnce(createValidTest());
+    mockSettings.enableResearch = true;
+
+    const fileContent =
+      'Closures capture variables from their outer lexical scope. ' +
+      'Closures are used in callbacks and event handlers throughout JavaScript.';
+
+    await generateFromFile(fileContent, 'js-notes.txt', DEFAULT_CONFIG, TEST_API_KEY);
+
+    const [prompt] = vi.mocked(generateTest).mock.calls[0];
+    expect(prompt).toContain('RESEARCH CONTEXT:');
+    expect(prompt).toContain('--- Document Excerpts ---');
+    expect(prompt).toContain('[Doc 1]');
+  });
+
+  it('completes generation without throwing when research fetch rejects', async () => {
+    const rejectingFetch = vi.fn().mockRejectedValue(new Error('Network down'));
+    vi.stubGlobal('fetch', rejectingFetch);
+    vi.mocked(generateTest).mockResolvedValueOnce(createValidTest());
+    mockSettings.enableResearch = true;
+
+    const test = await generateFromPrompt('Focus on closures', DEFAULT_CONFIG, TEST_API_KEY);
+
+    expect(test).toBeDefined();
+    expect(test.questions).toHaveLength(5);
+    expect(rejectingFetch).toHaveBeenCalledTimes(1);
+
+    const [prompt] = vi.mocked(generateTest).mock.calls[0];
+    expect(prompt).toContain('ADDITIONAL CONTEXT / INSTRUCTIONS');
+    expect(prompt).not.toContain('RESEARCH CONTEXT:');
+    expect(warnSpy).toHaveBeenCalled();
+    const warnCall = warnSpy.mock.calls.map((c) => c.join(' ')).join(' | ');
+    expect(warnCall).toContain('RESEARCH_FETCH_FAILED');
   });
 });

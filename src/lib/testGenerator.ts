@@ -1,7 +1,8 @@
 import { generateTest } from './api';
-import type { Test, TestConfig } from './types';
+import type { Test, TestConfig, Settings } from './types';
 import { createApiError, ErrorCodes } from './errorUtils';
 import { settingsStore } from './settingsStore.svelte';
+import { searchWeb, searchDocument, buildResearchContext } from './research';
 
 // ============================================================
 // Rich prompt construction
@@ -130,6 +131,36 @@ function validateTestStructure(test: Test, config: TestConfig): void {
 }
 
 // ============================================================
+// Research context (opt-in)
+// ============================================================
+
+async function gatherResearchContext(
+  topic: string,
+  uploadedText: string | undefined,
+  settings: Settings
+): Promise<string> {
+  if (!settings.enableResearch) return '';
+  const maxResults = settings.researchMaxResults ?? 5;
+  const snippetChars = settings.researchMaxSnippetChars ?? 800;
+  const trimmedTopic = (topic || '').trim();
+
+  try {
+    const webPromise = trimmedTopic
+      ? searchWeb(trimmedTopic, maxResults, snippetChars)
+      : Promise.resolve([]);
+    const docPromise =
+      uploadedText && uploadedText.trim() && trimmedTopic
+        ? searchDocument(uploadedText, trimmedTopic, snippetChars)
+        : Promise.resolve([]);
+
+    const [web, docs] = await Promise.all([webPromise, docPromise]);
+    return buildResearchContext(web, docs);
+  } catch {
+    return '';
+  }
+}
+
+// ============================================================
 // Core functions
 // ============================================================
 
@@ -145,16 +176,28 @@ function validateTestStructure(test: Test, config: TestConfig): void {
  * @param apiKey  OpenRouter API key.
  * @param personalityPrompt  Optional personality system prefix (e.g. from
  *   {@link buildPersonalityPrefix}) to prepend to the system message.
+ * @param uploadedText  Optional study-material text to make searchable
+ *   when research is enabled (e.g. file content from {@link generateFromFile}).
  * @returns The generated and validated Test.
  */
 export async function generateFromPrompt(
   prompt: string,
   config: TestConfig,
   apiKey: string,
-  personalityPrompt?: string
+  personalityPrompt?: string,
+  uploadedText?: string
 ): Promise<Test> {
   // Compose full prompt: base system-like instructions + user's additional context
-  const fullPrompt = `${buildRichPrompt(config)}\n\nADDITIONAL CONTEXT / INSTRUCTIONS:\n${prompt}`;
+  let fullPrompt = `${buildRichPrompt(config)}\n\nADDITIONAL CONTEXT / INSTRUCTIONS:\n${prompt}`;
+
+  const researchContext = await gatherResearchContext(
+    config.topic || '',
+    uploadedText,
+    settingsStore.settings
+  );
+  if (researchContext) {
+    fullPrompt = `${fullPrompt}\n\n${researchContext}`;
+  }
 
   // Call the API (retries and JSON parsing handled internally)
   const provider = settingsStore.settings.provider || 'openrouter';
@@ -201,5 +244,5 @@ export async function generateFromFile(
     `presented in this content. Ensure questions cover the most important material ` +
     `from the document.`;
 
-  return generateFromPrompt(contextPrompt, config, apiKey, personalityPrompt);
+  return generateFromPrompt(contextPrompt, config, apiKey, personalityPrompt, fileContent);
 }
