@@ -41,7 +41,7 @@ vi.mock('../lib/settingsStore.svelte', () => {
 // Helper to get the mutable settings mock
 async function getMockSettings() {
   const mod = await import('../lib/settingsStore.svelte');
-  return mod.settingsStore.settings as Record<string, unknown>;
+  return mod.settingsStore.settings as unknown as Record<string, unknown>;
 }
 
 describe('SettingsForm', () => {

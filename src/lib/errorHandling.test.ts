@@ -602,14 +602,14 @@ describe('validateProvider', () => {
   for (const provider of ['openai', 'anthropic', 'gemini', 'ollama', 'openrouter'] as ProviderType[]) {
     it(`should accept valid key for ${provider}`, () => {
       const settings: Settings = { ...baseSettings };
-      settings[PROVIDER_KEY_FIELDS[provider]] = VALID_KEY_VALUES[provider];
+      (settings as unknown as Record<string, string>)[PROVIDER_KEY_FIELDS[provider]] = VALID_KEY_VALUES[provider];
       const result = validateProvider(provider, settings);
       expect(result.valid).toBe(true);
     });
 
     it(`should reject empty key for ${provider} with PROVIDER_KEY_MISSING`, () => {
       const settings: Settings = { ...baseSettings };
-      settings[PROVIDER_KEY_FIELDS[provider]] = '';
+      (settings as unknown as Record<string, string>)[PROVIDER_KEY_FIELDS[provider]] = '';
       const result = validateProvider(provider, settings);
       expect(result.valid).toBe(false);
       expect(result.error?.code).toBe(ErrorCodes.PROVIDER_KEY_MISSING);

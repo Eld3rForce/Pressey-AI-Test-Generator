@@ -15,7 +15,7 @@ const SUPPORTED_EXTENSIONS = ['txt', 'md', 'pdf'];
  */
 export async function uploadFile(): Promise<{ content: string; fileName: string; fileType: string }> {
   // Guard: ensure we're running inside Tauri webview (not plain browser dev server)
-  if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) {
+  if (typeof window === 'undefined' || !window.__TAURI_INTERNALS__) {
     throw new Error(
       'File upload requires the Tauri desktop app. Please run `npm run tauri dev` instead of `npm run dev`.'
     );

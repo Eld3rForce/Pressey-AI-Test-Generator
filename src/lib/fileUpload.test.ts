@@ -23,7 +23,7 @@ import { readTextFile as tauriReadTextFile, stat } from '@tauri-apps/plugin-fs';
 import { invoke } from '@tauri-apps/api/core';
 
 // Simulate Tauri webview environment so existing tests pass
-(window as any).__TAURI_INTERNALS__ = {};
+window.__TAURI_INTERNALS__ = {};
 
 // ============================================================
 // Helpers
@@ -211,14 +211,14 @@ describe('uploadFile', () => {
   // --- Non-Tauri environment ---
 
   it('should throw when not running inside Tauri webview', async () => {
-    const origTAURI = (window as any).__TAURI_INTERNALS__;
-    delete (window as any).__TAURI_INTERNALS__;
+    const origTAURI = window.__TAURI_INTERNALS__;
+    delete window.__TAURI_INTERNALS__;
 
     await expect(uploadFile()).rejects.toThrow(
       'requires the Tauri desktop app'
     );
 
-    (window as any).__TAURI_INTERNALS__ = origTAURI;
+    window.__TAURI_INTERNALS__ = origTAURI;
   });
 });
 
