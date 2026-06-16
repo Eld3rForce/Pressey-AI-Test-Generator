@@ -1,0 +1,21 @@
+Task 3: Error handling improvement in settingsStore.svelte.ts
+============================================================
+Date: 2025-06-16
+Changed by: Sisyphus-Junior
+
+Change made:
+  - Line 63: `} catch {` → `} catch (error) {`
+  - Added `console.error('Failed to load settings:', error);`
+  - Added `this.error = error instanceof Error ? error.message : 'Failed to load settings';`
+  - Preserved fallback to defaults and `this.loaded = true`
+
+Files modified:
+  - src/lib/settingsStore.svelte.ts
+
+Verification:
+  - git diff confirms the catch block is no longer bare
+  - `npm test` — all settingsStore tests pass (21/21)
+  - db.test.ts failures (6) are pre-existing Tauri invoke issues, unrelated
+
+Evidence:
+  - Console output shows "Failed to load settings: Error: db error" — new console.error working

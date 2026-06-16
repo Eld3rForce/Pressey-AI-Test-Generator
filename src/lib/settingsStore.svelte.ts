@@ -60,9 +60,13 @@ class SettingsStore {
 
       this.settings = { ...defaults, ...s };
       this.loaded = true;
-    } catch {
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+      // Still fall back to defaults so the app continues to work,
+      // but log the error so failures are visible during development
       this.settings = { ...defaults };
       this.loaded = true;
+      this.error = error instanceof Error ? error.message : 'Failed to load settings';
     }
   }
 
