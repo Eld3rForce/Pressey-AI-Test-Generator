@@ -171,8 +171,11 @@ describe('generateFromPrompt', () => {
 
     const [prompt, config, apiKey] = vi.mocked(generateTest).mock.calls[0];
 
-    // Prompt should contain the rich template instructions
-    expect(prompt).toContain('Generate a test on the topic of');
+    // User prompt appears first as the primary instruction
+    expect(prompt.startsWith('Focus on closures and prototypes')).toBe(true);
+    // Template follows after separator
+    expect(prompt).toContain('Now generate a test with the following formatting requirements');
+    // Config values still in the formatting requirements
     expect(prompt).toContain('JavaScript');
     expect(prompt).toContain('Exactly 5 total questions');
     expect(prompt).toContain('3 multiple choice questions (60%');
@@ -180,7 +183,9 @@ describe('generateFromPrompt', () => {
     expect(prompt).toContain('Difficulty level: Medium');
     expect(prompt).toContain('exactly 4 options');
     expect(prompt).toContain('Focus on closures and prototypes');
-    expect(prompt).toContain('ADDITIONAL CONTEXT / INSTRUCTIONS');
+    // No more "ADDITIONAL CONTEXT / INSTRUCTIONS" wrapper
+    expect(prompt).not.toContain('ADDITIONAL CONTEXT / INSTRUCTIONS');
+    expect(prompt).not.toContain('Generate a test on the topic of');
 
     // Config and API key should be passed through unchanged
     expect(config).toEqual(DEFAULT_CONFIG);
@@ -477,7 +482,32 @@ describe('generateFromPrompt', () => {
     await generateFromPrompt('Test', configWithoutTopic, TEST_API_KEY);
 
     const [prompt] = vi.mocked(generateTest).mock.calls[0];
+    // Prompt starts with user prompt (not template topic claim)
+    expect(prompt.startsWith('Test')).toBe(true);
+    // "general knowledge" still appears as the fallback topic in JSON schema
     expect(prompt).toContain('"general knowledge"');
+  });
+
+  // --- User prompt ordering ---
+
+  it('should place user prompt before template when userPrompt is non-empty', async () => {
+    vi.mocked(generateTest).mockResolvedValueOnce(createValidTest());
+
+    await generateFromPrompt('Focus on closures', DEFAULT_CONFIG, TEST_API_KEY);
+
+    const [prompt] = vi.mocked(generateTest).mock.calls[0];
+    expect(prompt.startsWith('Focus on closures')).toBe(true);
+    expect(prompt).toContain('Now generate a test with the following formatting requirements');
+  });
+
+  it('should use template only when userPrompt is empty', async () => {
+    vi.mocked(generateTest).mockResolvedValueOnce(createValidTest());
+
+    await generateFromPrompt('', DEFAULT_CONFIG, TEST_API_KEY);
+
+    const [prompt] = vi.mocked(generateTest).mock.calls[0];
+    expect(prompt.startsWith('Generate a test on the topic of "JavaScript"')).toBe(true);
+    expect(prompt).toContain('Exactly 5 total questions');
   });
 });
 
@@ -503,11 +533,12 @@ describe('generateFromFile', () => {
 
     const [prompt, config, apiKey] = vi.mocked(generateTest).mock.calls[0];
 
-    // Should contain the file-based context wrapper
+    // Should contain the file-based context (no double-wrapping)
     expect(prompt).toContain('Generate a test based on the following content');
     expect(prompt).toContain('"closures-notes.txt"');
     expect(prompt).toContain('Closures are functions that remember their lexical scope');
-    expect(prompt).toContain('ADDITIONAL CONTEXT / INSTRUCTIONS');
+    expect(prompt).toContain('Now generate a test with the following formatting requirements');
+    expect(prompt).not.toContain('ADDITIONAL CONTEXT / INSTRUCTIONS');
 
     // Config and apiKey should pass through unchanged
     expect(config).toEqual(DEFAULT_CONFIG);
@@ -594,6 +625,8 @@ describe('generateFromFile', () => {
     // Should contain the additional user instructions
     expect(prompt).toContain('ADDITIONAL USER INSTRUCTIONS:');
     expect(prompt).toContain('Focus on practical examples and real-world use cases.');
+    // No double-wrapping with old ADDITIONAL CONTEXT header
+    expect(prompt).not.toContain('ADDITIONAL CONTEXT / INSTRUCTIONS');
   });
 
   it('should not add ADDITIONAL USER INSTRUCTIONS block when userPrompt is empty', async () => {
@@ -685,16 +718,13 @@ describe('research integration', () => {
     expect(calledUrl).toContain(encodeURIComponent('JavaScript'));
 
     const [prompt] = vi.mocked(generateTest).mock.calls[0];
-    expect(prompt).toContain('ADDITIONAL CONTEXT / INSTRUCTIONS');
     expect(prompt).toContain('RESEARCH CONTEXT:');
     expect(prompt).toContain('--- Web Results ---');
     expect(prompt).toContain('[Web 1] Closures in JavaScript');
     expect(prompt).toContain('lexical scope');
     expect(prompt).toContain('Source: https://example.com/js-closures');
-
-    const addIdx = prompt.indexOf('ADDITIONAL CONTEXT / INSTRUCTIONS');
-    const researchIdx = prompt.indexOf('RESEARCH CONTEXT:');
-    expect(researchIdx).toBeGreaterThan(addIdx);
+    // Research context is appended after the main prompt
+    expect(prompt.indexOf('RESEARCH CONTEXT:')).toBeGreaterThan(prompt.indexOf('Now generate a test'));
   });
 
   it('passes file content as uploaded text for document search in generateFromFile', async () => {
@@ -726,7 +756,9 @@ describe('research integration', () => {
     expect(rejectingFetch).toHaveBeenCalledTimes(1);
 
     const [prompt] = vi.mocked(generateTest).mock.calls[0];
-    expect(prompt).toContain('ADDITIONAL CONTEXT / INSTRUCTIONS');
+    // User prompt still appears (no ADDITIONAL CONTEXT / INSTRUCTIONS header)
+    expect(prompt).toContain('Focus on closures');
+    expect(prompt).toContain('Now generate a test with the following formatting requirements');
     expect(prompt).not.toContain('RESEARCH CONTEXT:');
     expect(warnSpy).toHaveBeenCalled();
     const warnCall = warnSpy.mock.calls.map((c) => c.join(' ')).join(' | ');

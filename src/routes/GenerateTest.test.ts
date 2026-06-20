@@ -79,8 +79,8 @@ vi.mock('../lib/testGenerator', () => ({
         correctAnswer: 'Water', explanation: 'Water is H2O', orderIndex: 0,
       },
       {
-        id: 2, type: 'text' as const, text: 'Explain photosynthesis',
-        correctAnswer: 'Plants convert sunlight', explanation: '', orderIndex: 1,
+          id: 2, type: 'text' as const, text: 'Explain photosynthesis',
+          correctAnswer: 'Plants convert sunlight', explanation: 'Plants convert sunlight, water, and carbon dioxide into glucose and oxygen through photosynthesis.', orderIndex: 1,
       },
     ],
     createdAt: '2025-01-01T00:00:00Z',
@@ -95,9 +95,9 @@ vi.mock('../lib/testGenerator', () => ({
     mcqPercentage: 100,
     questions: [
       {
-        id: 3, type: 'mcq' as const, text: 'Q1?',
-        options: ['A', 'B', 'C', 'D'],
-        correctAnswer: 'A', explanation: '', orderIndex: 0,
+          id: 3, type: 'mcq' as const, text: 'Q1?',
+          options: ['A', 'B', 'C', 'D'],
+          correctAnswer: 'A', explanation: 'Option A is the correct answer based on standard assessment criteria.', orderIndex: 0,
       },
     ],
     createdAt: '2025-01-01T00:00:00Z',
@@ -213,7 +213,7 @@ describe('GenerateTest', () => {
       questions: [{
         id: 1, type: 'mcq' as const, text: 'Q1',
         options: ['A', 'B', 'C', 'D'], correctAnswer: 'A',
-        explanation: '', orderIndex: 0,
+        explanation: 'Standard MCQ assessment criteria indicate A is the correct answer.', orderIndex: 0,
       }],
       createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z',
     });
@@ -239,7 +239,7 @@ describe('GenerateTest', () => {
       questions: [{
         id: 1, type: 'mcq' as const, text: 'Q1',
         options: ['A', 'B', 'C', 'D'], correctAnswer: 'A',
-        explanation: '', orderIndex: 0,
+        explanation: 'A is correct because it is the first and most appropriate option for this question.', orderIndex: 0,
       }],
       createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z',
     });
@@ -302,8 +302,8 @@ describe('GenerateTest', () => {
       id: 1, title: 'MCQ Only', topic: 'Science', difficulty: 'Medium',
       questionCount: 2, mcqPercentage: 100,
       questions: [
-        { id: 1, type: 'mcq' as const, text: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A', explanation: '', orderIndex: 0 },
-        { id: 2, type: 'mcq' as const, text: 'Q2', options: ['A', 'B', 'C', 'D'], correctAnswer: 'B', explanation: '', orderIndex: 1 },
+        { id: 1, type: 'mcq' as const, text: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A', explanation: 'A is the correct multiple choice option for Q1.', orderIndex: 0 },
+        { id: 2, type: 'mcq' as const, text: 'Q2', options: ['A', 'B', 'C', 'D'], correctAnswer: 'B', explanation: 'B is the correct multiple choice option for Q2.', orderIndex: 1 },
       ],
       createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z',
     });
@@ -348,7 +348,7 @@ describe('GenerateTest', () => {
       id: 1, title: 'Text Only', topic: 'History', difficulty: 'Hard',
       questionCount: 1, mcqPercentage: 0,
       questions: [
-        { id: 1, type: 'text' as const, text: 'Explain X', correctAnswer: 'Y', explanation: '', orderIndex: 0 },
+        { id: 1, type: 'text' as const, text: 'Explain X', correctAnswer: 'Y', explanation: 'Y is the correct answer because it directly addresses the question about X.', orderIndex: 0 },
       ],
       createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z',
     });
@@ -390,7 +390,7 @@ describe('GenerateTest', () => {
       id: 1, title: 'Mixed', topic: 'Bio', difficulty: 'Easy',
       questionCount: 1, mcqPercentage: 30,
       questions: [
-        { id: 1, type: 'mcq' as const, text: 'Q', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A', explanation: '', orderIndex: 0 },
+        { id: 1, type: 'mcq' as const, text: 'Q', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A', explanation: 'Option A is the correct answer for this mixed-configuration question.', orderIndex: 0 },
       ],
       createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z',
     });
@@ -435,13 +435,13 @@ describe('GenerateTest', () => {
   });
 
   // ── 15. Blur toggle shows/hides correct answers ────────────────────
-  it('toggles blur-answer class on correct answer fields when Show Answers is clicked', async () => {
+  it('toggles correct answer visibility when Show Answers is clicked', async () => {
     vi.mocked(generateFromPrompt).mockResolvedValue({
       id: 1, title: 'Blur Test', topic: 'Science', difficulty: 'Medium',
       questionCount: 2, mcqPercentage: 50,
       questions: [
-        { id: 1, type: 'mcq' as const, text: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A', explanation: '', orderIndex: 0 },
-        { id: 2, type: 'text' as const, text: 'Explain X', correctAnswer: 'Answer text', explanation: '', orderIndex: 1 },
+        { id: 1, type: 'mcq' as const, text: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A', explanation: 'A is correct for Q1 in this test.', orderIndex: 0 },
+        { id: 2, type: 'text' as const, text: 'Explain X', correctAnswer: 'Answer text', explanation: 'Answer text is the expected model response for this question.', orderIndex: 1 },
       ],
       createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z',
     });
@@ -457,22 +457,180 @@ describe('GenerateTest', () => {
       expect(screen.getByText('2 questions ready')).toBeTruthy();
     });
 
-    // Before toggle: blur-answer class should be present
-    const mcqCorrectEl = document.querySelector('#q-correct-0') as HTMLElement;
-    const textCorrectEl = document.querySelector('#q-correct-1') as HTMLElement;
-    expect(mcqCorrectEl).toBeTruthy();
-    expect(textCorrectEl).toBeTruthy();
-    expect(mcqCorrectEl.classList.contains('blur-answer')).toBe(true);
-    expect(textCorrectEl.classList.contains('blur-answer')).toBe(true);
+    // Before toggle: no select/textarea in DOM, blur placeholders exist
+    expect(document.querySelector('#q-correct-0')).toBeNull();
+    expect(document.querySelector('#q-correct-1')).toBeNull();
+    expect(document.querySelector('.blur-placeholder[aria-label="Click to reveal answer"]')).toBeTruthy();
 
-    // Click "Show Answers" to reveal answers
+    // Click "Show Answers" to reveal all answers
     await fireEvent.click(screen.getByText('Show Answers'));
 
-    // After toggle: blur-answer class should be removed
-    expect(mcqCorrectEl.classList.contains('blur-answer')).toBe(false);
-    expect(textCorrectEl.classList.contains('blur-answer')).toBe(false);
+    // After toggle: select and textarea are now visible, blur placeholders are gone
+    await waitFor(() => {
+      expect(document.querySelector('#q-correct-0')).toBeTruthy();
+    });
+    expect(document.querySelector('#q-correct-1')).toBeTruthy();
+    expect(document.querySelector('.blur-placeholder[aria-label="Click to reveal answer"]')).toBeNull();
 
     // The button text should now say "Hide Answers"
     expect(screen.getByText('Hide Answers')).toBeTruthy();
+  });
+
+  // ── 16. Clicking a blurred answer placeholder reveals it ─────────
+  it('clicking a blurred answer placeholder reveals it', async () => {
+    vi.mocked(generateFromPrompt).mockResolvedValue({
+      id: 1, title: 'Click Reveal Test', topic: 'Science', difficulty: 'Medium',
+      questionCount: 1, mcqPercentage: 100,
+      questions: [
+        { id: 1, type: 'mcq' as const, text: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A', explanation: 'A is correct.', orderIndex: 0 },
+      ],
+      createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z',
+    });
+
+    render(GenerateTest);
+
+    const textarea = screen.getByPlaceholderText('Describe the test topic or paste content...');
+    await fireEvent.input(textarea, { target: { value: 'Science topic for testing' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Generate Test' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('1 questions ready')).toBeTruthy();
+    });
+
+    // Initially: blur placeholder visible, no select
+    expect(document.querySelector('#q-correct-0')).toBeNull();
+    const placeholder = document.querySelector('.blur-placeholder[aria-label="Click to reveal answer"]') as HTMLElement;
+    expect(placeholder).toBeTruthy();
+
+    // Click to reveal
+    await fireEvent.click(placeholder);
+
+    // Now the select is visible
+    await waitFor(() => {
+      expect(document.querySelector('#q-correct-0')).toBeTruthy();
+    });
+
+    // Blur placeholder should be gone (replaced by the select)
+    expect(document.querySelector('.blur-placeholder[aria-label="Click to reveal answer"]')).toBeNull();
+  });
+
+  // ── 17. Explanation is blurred by default in preview ─────────────
+  it('explanation is blurred by default in preview', async () => {
+    vi.mocked(generateFromPrompt).mockResolvedValue({
+      id: 1, title: 'Explanation Test', topic: 'Science', difficulty: 'Medium',
+      questionCount: 1, mcqPercentage: 100,
+      questions: [
+        { id: 1, type: 'mcq' as const, text: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A', explanation: 'This is a detailed explanation for the correct answer.', orderIndex: 0 },
+      ],
+      createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z',
+    });
+
+    render(GenerateTest);
+
+    const textarea = screen.getByPlaceholderText('Describe the test topic or paste content...');
+    await fireEvent.input(textarea, { target: { value: 'Science topic for explanation test' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Generate Test' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('1 questions ready')).toBeTruthy();
+    });
+
+    // Explanation blur placeholder exists by default
+    const explanationPlaceholder = document.querySelector('.blur-placeholder[aria-label="Click to reveal explanation"]');
+    expect(explanationPlaceholder).toBeTruthy();
+
+    // Explanation textarea should NOT be visible yet
+    expect(document.querySelector('#q-explain-0')).toBeNull();
+
+    // Click "Show Answers" to reveal all
+    await fireEvent.click(screen.getByText('Show Answers'));
+
+    // Now the explanation textarea should be visible
+    await waitFor(() => {
+      expect(document.querySelector('#q-explain-0')).toBeTruthy();
+    });
+
+    // Blur placeholder should be gone
+    expect(document.querySelector('.blur-placeholder[aria-label="Click to reveal explanation"]')).toBeNull();
+  });
+
+  // ── 18. Pressing Enter on focused blurred placeholder reveals it ─
+  it('pressing Enter on focused blurred placeholder reveals it', async () => {
+    vi.mocked(generateFromPrompt).mockResolvedValue({
+      id: 1, title: 'Keyboard Test', topic: 'Science', difficulty: 'Medium',
+      questionCount: 1, mcqPercentage: 100,
+      questions: [
+        { id: 1, type: 'mcq' as const, text: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A', explanation: 'A is correct.', orderIndex: 0 },
+      ],
+      createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z',
+    });
+
+    render(GenerateTest);
+
+    const textarea = screen.getByPlaceholderText('Describe the test topic or paste content...');
+    await fireEvent.input(textarea, { target: { value: 'Science keyboard test' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Generate Test' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('1 questions ready')).toBeTruthy();
+    });
+
+    // Blur placeholder visible, no select
+    expect(document.querySelector('#q-correct-0')).toBeNull();
+    const placeholder = document.querySelector('.blur-placeholder[aria-label="Click to reveal answer"]') as HTMLElement;
+    expect(placeholder).toBeTruthy();
+
+    // Focus the placeholder and press Enter
+    placeholder.focus();
+    await fireEvent.keyDown(placeholder, { key: 'Enter' });
+
+    // Now the select should be visible
+    await waitFor(() => {
+      expect(document.querySelector('#q-correct-0')).toBeTruthy();
+    });
+  });
+
+  // ── 19. Reveal state resets on regenerate ────────────────────────
+  it('reveal state resets on regenerate', async () => {
+    vi.mocked(generateFromPrompt).mockResolvedValue({
+      id: 1, title: 'Regen Test', topic: 'Science', difficulty: 'Medium',
+      questionCount: 1, mcqPercentage: 100,
+      questions: [
+        { id: 1, type: 'mcq' as const, text: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A', explanation: 'A is correct.', orderIndex: 0 },
+      ],
+      createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z',
+    });
+
+    render(GenerateTest);
+
+    const textarea = screen.getByPlaceholderText('Describe the test topic or paste content...');
+    await fireEvent.input(textarea, { target: { value: 'Science regen first prompt' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Generate Test' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('1 questions ready')).toBeTruthy();
+    });
+
+    // Reveal one answer by clicking the placeholder
+    const placeholder = document.querySelector('.blur-placeholder[aria-label="Click to reveal answer"]') as HTMLElement;
+    expect(placeholder).toBeTruthy();
+    await fireEvent.click(placeholder);
+
+    await waitFor(() => {
+      expect(document.querySelector('#q-correct-0')).toBeTruthy();
+    });
+
+    // Now generate again with a different prompt
+    const textarea2 = screen.getByPlaceholderText('Describe the test topic or paste content...');
+    await fireEvent.input(textarea2, { target: { value: 'Science regen second prompt with more text' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Generate Test' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('1 questions ready')).toBeTruthy();
+    });
+
+    // After regenerate: all answers should be blurred again
+    expect(document.querySelector('#q-correct-0')).toBeNull();
+    expect(document.querySelector('.blur-placeholder[aria-label="Click to reveal answer"]')).toBeTruthy();
   });
 });
