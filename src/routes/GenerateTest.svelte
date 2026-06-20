@@ -894,12 +894,6 @@
       0 0 0 4px var(--color-accent);
   }
 
-  /* ── Blur correct answers when hidden ─────────────────────── */
-  .blur-answer {
-    filter: blur(8px);
-    user-select: none;
-  }
-
   /* ── Click-to-reveal blurred placeholder ──────────────────── */
   .blur-placeholder {
     filter: blur(8px);

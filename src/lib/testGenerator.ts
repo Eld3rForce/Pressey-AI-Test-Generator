@@ -219,7 +219,7 @@ async function generateCore(
     uploadedText,
     settingsStore.settings
   );
-  let prompt = researchContext ? `${fullPrompt}\n\n${researchContext}` : fullPrompt;
+  const prompt = researchContext ? `${fullPrompt}\n\n${researchContext}` : fullPrompt;
 
   const provider = settingsStore.settings.provider || 'openrouter';
   const test = await generateTest(prompt, config, apiKey, undefined, personalityPrompt, provider);
