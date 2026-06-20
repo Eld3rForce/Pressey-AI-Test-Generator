@@ -73,7 +73,7 @@ describe('Settings', () => {
   it('renders About metadata fields', () => {
     render(Settings);
     const about = screen.getByTestId('section-about');
-    expect(within(about).getByText('v0.2.2')).toBeTruthy();
+    expect(within(about).getByText('v0.2.3')).toBeTruthy();
     expect(within(about).getByText('Local · SQLite')).toBeTruthy();
     expect(within(about).getByText('openrouter')).toBeTruthy();
     expect(within(about).getByText('Tauri v2')).toBeTruthy();

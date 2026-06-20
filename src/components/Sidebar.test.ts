@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/svelte';
 import Sidebar from './Sidebar.svelte';
 
 vi.mock('@tauri-apps/api/app', () => ({
-  getVersion: vi.fn().mockResolvedValue('0.2.2'),
+  getVersion: vi.fn().mockResolvedValue('0.2.3'),
 }));
 
 describe('Sidebar', () => {
@@ -88,7 +88,7 @@ describe('Sidebar', () => {
   // ── 7. Renders version status strip ────────────────────────────────
   it('renders version status', async () => {
     render(Sidebar, defaultProps);
-    expect(await screen.findByText('v0.2.2 · local')).toBeTruthy();
+    expect(await screen.findByText('v0.2.3 · local')).toBeTruthy();
   });
 
   // ── 8. Renders nav descriptions ────────────────────────────────────
