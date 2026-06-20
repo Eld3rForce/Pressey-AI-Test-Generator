@@ -39,6 +39,32 @@
   let editedTitle = $state('');
   let showAnswers = $state(false);
 
+  // ── Per-question reveal state ────────────────────────────────────
+  let revealedAnswers = $state(new Set<number>());
+  let revealedExplanations = $state(new Set<number>());
+
+  function toggleRevealAnswer(index: number) {
+    const next = new Set(revealedAnswers);
+    if (next.has(index)) next.delete(index);
+    else next.add(index);
+    revealedAnswers = next;
+  }
+
+  function toggleRevealExplanation(index: number) {
+    const next = new Set(revealedExplanations);
+    if (next.has(index)) next.delete(index);
+    else next.add(index);
+    revealedExplanations = next;
+  }
+
+  function isAnswerRevealed(index: number): boolean {
+    return showAnswers || revealedAnswers.has(index);
+  }
+
+  function isExplanationRevealed(index: number): boolean {
+    return showAnswers || revealedExplanations.has(index);
+  }
+
   // ── Save state ──────────────────────────────────────────────────
   let saving = $state(false);
   let saveMessage = $state<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -136,6 +162,8 @@
     generatedTest = null;
     editableQuestions = [];
     editedTitle = '';
+    revealedAnswers = new Set();
+    revealedExplanations = new Set();
 
     // Input validation before making API call. We always run these checks so
     // a click on the button surfaces a helpful error even when canGenerate
@@ -679,42 +707,79 @@
 
                 <div class="pt-1">
                   <label class="micro-label mb-1.5 block" for={`q-correct-${i}`}>Correct Answer</label>
-                  <select
-                    id={`q-correct-${i}`}
-                    value={question.correctAnswer}
-                    onchange={(e) => updateCorrectAnswer(i, (e.currentTarget as HTMLSelectElement).value)}
-                    class="w-full bg-background/30 rounded-md border border-border px-2 py-1.5 text-sm text-foreground focus:ring-2 focus:ring-accent outline-none cursor-pointer"
-                    class:blur-answer={!showAnswers}
-                  >
-                    {#each question.options as opt, oi (oi)}
-                      <option value={opt}>{String.fromCharCode(65 + oi)}. {opt || '(empty)'}</option>
-                    {/each}
-                  </select>
+                  {#if isAnswerRevealed(i)}
+                    <select
+                      id={`q-correct-${i}`}
+                      value={question.correctAnswer}
+                      onchange={(e) => updateCorrectAnswer(i, (e.currentTarget as HTMLSelectElement).value)}
+                      class="w-full bg-background/30 rounded-md border border-border px-2 py-1.5 text-sm text-foreground focus:ring-2 focus:ring-accent outline-none cursor-pointer"
+                    >
+                      {#each question.options as opt, oi (oi)}
+                        <option value={opt}>{String.fromCharCode(65 + oi)}. {opt || '(empty)'}</option>
+                      {/each}
+                    </select>
+                  {:else}
+                    <div
+                      class="blur-placeholder"
+                      role="button"
+                      tabindex="0"
+                      aria-label="Click to reveal answer"
+                      onclick={() => toggleRevealAnswer(i)}
+                      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRevealAnswer(i); } }}
+                    >
+                      Click to reveal answer
+                    </div>
+                  {/if}
                 </div>
               </div>
             {:else}
               <div class="pl-3 border-l-2 border-accent/30">
                 <label class="micro-label mb-1.5 block" for={`q-correct-${i}`}>Model Answer</label>
-                <textarea
-                  id={`q-correct-${i}`}
-                  value={question.correctAnswer}
-                  oninput={(e) => updateCorrectAnswer(i, (e.currentTarget as HTMLTextAreaElement).value)}
-                  rows="3"
-                  class="w-full bg-background/30 rounded-md border border-border px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-accent outline-none resize-y"
-                  class:blur-answer={!showAnswers}
-                ></textarea>
+                {#if isAnswerRevealed(i)}
+                  <textarea
+                    id={`q-correct-${i}`}
+                    value={question.correctAnswer}
+                    oninput={(e) => updateCorrectAnswer(i, (e.currentTarget as HTMLTextAreaElement).value)}
+                    rows="3"
+                    class="w-full bg-background/30 rounded-md border border-border px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-accent outline-none resize-y"
+                  ></textarea>
+                {:else}
+                  <div
+                    class="blur-placeholder"
+                    role="button"
+                    tabindex="0"
+                    aria-label="Click to reveal answer"
+                    onclick={() => toggleRevealAnswer(i)}
+                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRevealAnswer(i); } }}
+                  >
+                    Click to reveal answer
+                  </div>
+                {/if}
               </div>
             {/if}
 
             <div>
               <label class="micro-label mb-1.5 block" for={`q-explain-${i}`}>Explanation</label>
-              <textarea
-                id={`q-explain-${i}`}
-                value={question.explanation ?? ''}
-                oninput={(e) => updateExplanation(i, (e.currentTarget as HTMLTextAreaElement).value)}
-                rows="2"
-                class="w-full bg-background/30 rounded-md border border-border px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-accent outline-none resize-y"
-              ></textarea>
+              {#if isExplanationRevealed(i)}
+                <textarea
+                  id={`q-explain-${i}`}
+                  value={question.explanation ?? ''}
+                  oninput={(e) => updateExplanation(i, (e.currentTarget as HTMLTextAreaElement).value)}
+                  rows="2"
+                  class="w-full bg-background/30 rounded-md border border-border px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-accent outline-none resize-y"
+                ></textarea>
+              {:else}
+                <div
+                  class="blur-placeholder"
+                  role="button"
+                  tabindex="0"
+                  aria-label="Click to reveal explanation"
+                  onclick={() => toggleRevealExplanation(i)}
+                  onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRevealExplanation(i); } }}
+                >
+                  Click to reveal explanation
+                </div>
+              {/if}
             </div>
           </article>
         {/each}
@@ -833,5 +898,24 @@
   .blur-answer {
     filter: blur(8px);
     user-select: none;
+  }
+
+  /* ── Click-to-reveal blurred placeholder ──────────────────── */
+  .blur-placeholder {
+    filter: blur(8px);
+    user-select: none;
+    cursor: pointer;
+    padding: 0.375rem 0.5rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-muted);
+    color: var(--color-muted-foreground);
+    text-align: center;
+    font-size: 0.875rem;
+  }
+
+  .blur-placeholder:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
 </style>

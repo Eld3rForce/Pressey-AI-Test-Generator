@@ -5,17 +5,19 @@ import { settingsStore } from './settingsStore.svelte';
 import { searchWeb, searchDocument, buildResearchContext } from './research';
 
 // ============================================================
-// Rich prompt construction
+// Formatting requirements (shared between prompt builders)
 // ============================================================
 
-function buildRichPrompt(config: TestConfig): string {
+/**
+ * Build the formatting requirements block (question count, MCQ/text split,
+ * difficulty, JSON schema). Shared by both prompt-only and file-based paths.
+ */
+function buildFormattingRequirements(config: TestConfig): string {
   const mcqCount = Math.round((config.mcqPercentage / 100) * config.questionCount);
   const textCount = config.questionCount - mcqCount;
   const topic = config.topic || 'general knowledge';
 
-  return `Generate a test on the topic of "${topic}" with the following specifications:
-
-REQUIREMENTS:
+  return `REQUIREMENTS:
 - Exactly ${config.questionCount} total questions
 - ${mcqCount} multiple choice questions (${config.mcqPercentage}% of total)
 - ${textCount} text response / free-form questions
@@ -57,6 +59,34 @@ Return the response as a JSON object with this exact structure:
     }
   ]
 }`;
+}
+
+// ============================================================
+// Rich prompt construction
+// ============================================================
+
+/**
+ * Build a rich instructional prompt for test generation.
+ *
+ * When a non-empty `userPrompt` is provided, it becomes the primary
+ * instruction (placed first), followed by formatting requirements.
+ * When `userPrompt` is empty or undefined, the original template
+ * ("Generate a test on the topic of...") is used verbatim.
+ *
+ * @param config      Test configuration (question count, difficulty, etc.).
+ * @param userPrompt  Optional user-provided prompt placed as the primary
+ *                    instruction when non-empty.
+ * @returns The composed prompt string.
+ */
+function buildRichPrompt(config: TestConfig, userPrompt?: string): string {
+  if (userPrompt && userPrompt.trim() !== '') {
+    // User prompt drives output — placed first, template follows
+    return `${userPrompt}\n\n---\n\nNow generate a test with the following formatting requirements:\n\n${buildFormattingRequirements(config)}`;
+  }
+
+  // No user prompt — original template behavior
+  const topic = config.topic || 'general knowledge';
+  return `Generate a test on the topic of "${topic}" with the following specifications:\n\n${buildFormattingRequirements(config)}`;
 }
 
 // ============================================================
@@ -161,19 +191,67 @@ async function gatherResearchContext(
 }
 
 // ============================================================
-// Core functions
+// Core generation pipeline (shared between prompt and file paths)
 // ============================================================
 
 /**
- * Generate a test from a prompt string.
+ * Core generation pipeline: research context, API call, validation, persistence.
  *
- * Composes a rich instructional prompt, calls the OpenRouter API via
+ * Shared by both {@link generateFromPrompt} and {@link generateFromFile} to
+ * avoid duplicating the generation/validation/persist logic.
+ *
+ * @param fullPrompt        The fully composed prompt to send to the API.
+ * @param config            Test configuration.
+ * @param apiKey            OpenRouter API key.
+ * @param personalityPrompt Optional personality system prefix.
+ * @param uploadedText      Optional study-material text for research context.
+ * @returns The generated and validated Test.
+ */
+async function generateCore(
+  fullPrompt: string,
+  config: TestConfig,
+  apiKey: string,
+  personalityPrompt?: string,
+  uploadedText?: string
+): Promise<Test> {
+  const researchContext = await gatherResearchContext(
+    config.topic || '',
+    uploadedText,
+    settingsStore.settings
+  );
+  let prompt = researchContext ? `${fullPrompt}\n\n${researchContext}` : fullPrompt;
+
+  const provider = settingsStore.settings.provider || 'openrouter';
+  const test = await generateTest(prompt, config, apiKey, undefined, personalityPrompt, provider);
+
+  validateTestStructure(test, config);
+
+  try {
+    const { createTest } = await import('./dbService');
+    await createTest(test);
+  } catch {
+    // dbService not yet available — continue without persisting
+  }
+
+  return test;
+}
+
+// ============================================================
+// Public API
+// ============================================================
+
+/**
+ * Generate a test from a user-provided prompt string.
+ *
+ * Composes a rich instructional prompt (user prompt first when non-empty,
+ * then formatting requirements), calls the OpenRouter API via
  * {@link generateTest}, validates the returned structure, and optionally
  * persists the test to SQLite if dbService is available.
  *
- * @param prompt  Additional instructions to append to the base prompt.
- * @param config  Test configuration (question count, difficulty, etc.).
- * @param apiKey  OpenRouter API key.
+ * @param prompt   User prompt text placed as the primary instruction
+ *                 when non-empty; otherwise the template-only prompt is used.
+ * @param config   Test configuration (question count, difficulty, etc.).
+ * @param apiKey   OpenRouter API key.
  * @param personalityPrompt  Optional personality system prefix (e.g. from
  *   {@link buildPersonalityPrefix}) to prepend to the system message.
  * @param uploadedText  Optional study-material text to make searchable
@@ -187,48 +265,29 @@ export async function generateFromPrompt(
   personalityPrompt?: string,
   uploadedText?: string
 ): Promise<Test> {
-  // Compose full prompt: base system-like instructions + user's additional context
-  let fullPrompt = `${buildRichPrompt(config)}\n\nADDITIONAL CONTEXT / INSTRUCTIONS:\n${prompt}`;
-
-  const researchContext = await gatherResearchContext(
-    config.topic || '',
-    uploadedText,
-    settingsStore.settings
-  );
-  if (researchContext) {
-    fullPrompt = `${fullPrompt}\n\n${researchContext}`;
-  }
-
-  // Call the API (retries and JSON parsing handled internally)
-  const provider = settingsStore.settings.provider || 'openrouter';
-  const test = await generateTest(fullPrompt, config, apiKey, undefined, personalityPrompt, provider);
-
-  // Validate the returned test structure against the config
-  validateTestStructure(test, config);
-
-  // Conditionally save to database if dbService is available (Task 8, parallel)
-  try {
-    const { createTest } = await import('./dbService');
-    await createTest(test);
-  } catch {
-    // dbService not yet available — continue without persisting
-  }
-
-  return test;
+  const fullPrompt = buildRichPrompt(config, prompt);
+  return generateCore(fullPrompt, config, apiKey, personalityPrompt, uploadedText);
 }
 
 /**
  * Generate a test from file content.
  *
- * Prepends the file content as study material context, then delegates to
- * {@link generateFromPrompt} to produce the test.
+ * Builds a file-centric prompt where the file content (and optional user
+ * instructions) come first, followed by formatting requirements. This
+ * avoids the double-wrapping that occurred when delegating to
+ * {@link generateFromPrompt}.
+ *
+ * The file content serves as the primary context for test generation.
+ * Any user-provided instructions are appended within the file context,
+ * not nested inside a second template.
  *
  * @param fileContent  The extracted text content of the source file.
  * @param fileName     Name of the source file (for context in the prompt).
  * @param config       Test configuration.
  * @param apiKey       OpenRouter API key.
  * @param personalityPrompt  Optional personality system prefix to influence tone.
- * @param userPrompt        Optional user-provided instructions appended as additional context.
+ * @param userPrompt        Optional user-provided instructions appended within
+ *                          the file context prompt.
  * @returns The generated and validated Test.
  */
 export async function generateFromFile(
@@ -239,7 +298,8 @@ export async function generateFromFile(
   personalityPrompt?: string,
   userPrompt?: string
 ): Promise<Test> {
-  let contextPrompt =
+  // Build file-context prompt: file content is primary, formatting follows
+  let fullPrompt =
     `Generate a test based on the following content from file "${fileName}":\n\n` +
     `${fileContent}\n\n` +
     `Create questions that test understanding of the key concepts, facts, and ideas ` +
@@ -247,8 +307,11 @@ export async function generateFromFile(
     `from the document.`;
 
   if (userPrompt && userPrompt.trim() !== '') {
-    contextPrompt += `\n\nADDITIONAL USER INSTRUCTIONS:\n${userPrompt}`;
+    fullPrompt += `\n\nADDITIONAL USER INSTRUCTIONS:\n${userPrompt}`;
   }
 
-  return generateFromPrompt(contextPrompt, config, apiKey, personalityPrompt, fileContent);
+  // Append formatting requirements (not wrapped again — this is the only template pass)
+  fullPrompt += `\n\n---\n\nNow generate a test with the following formatting requirements:\n\n${buildFormattingRequirements(config)}`;
+
+  return generateCore(fullPrompt, config, apiKey, personalityPrompt, fileContent);
 }
