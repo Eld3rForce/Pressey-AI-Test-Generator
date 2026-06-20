@@ -433,4 +433,46 @@ describe('GenerateTest', () => {
     expect(config.includeText).toBe(true);
     expect(config.mcqPercentage).toBe(30);
   });
+
+  // ── 15. Blur toggle shows/hides correct answers ────────────────────
+  it('toggles blur-answer class on correct answer fields when Show Answers is clicked', async () => {
+    vi.mocked(generateFromPrompt).mockResolvedValue({
+      id: 1, title: 'Blur Test', topic: 'Science', difficulty: 'Medium',
+      questionCount: 2, mcqPercentage: 50,
+      questions: [
+        { id: 1, type: 'mcq' as const, text: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A', explanation: '', orderIndex: 0 },
+        { id: 2, type: 'text' as const, text: 'Explain X', correctAnswer: 'Answer text', explanation: '', orderIndex: 1 },
+      ],
+      createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z',
+    });
+
+    render(GenerateTest);
+
+    // Generate a test first — use a prompt > 10 characters to pass validation
+    const textarea = screen.getByPlaceholderText('Describe the test topic or paste content...');
+    await fireEvent.input(textarea, { target: { value: 'Science and biology topics' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Generate Test' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('2 questions ready')).toBeTruthy();
+    });
+
+    // Before toggle: blur-answer class should be present
+    const mcqCorrectEl = document.querySelector('#q-correct-0') as HTMLElement;
+    const textCorrectEl = document.querySelector('#q-correct-1') as HTMLElement;
+    expect(mcqCorrectEl).toBeTruthy();
+    expect(textCorrectEl).toBeTruthy();
+    expect(mcqCorrectEl.classList.contains('blur-answer')).toBe(true);
+    expect(textCorrectEl.classList.contains('blur-answer')).toBe(true);
+
+    // Click "Show Answers" to reveal answers
+    await fireEvent.click(screen.getByText('Show Answers'));
+
+    // After toggle: blur-answer class should be removed
+    expect(mcqCorrectEl.classList.contains('blur-answer')).toBe(false);
+    expect(textCorrectEl.classList.contains('blur-answer')).toBe(false);
+
+    // The button text should now say "Hide Answers"
+    expect(screen.getByText('Hide Answers')).toBeTruthy();
+  });
 });

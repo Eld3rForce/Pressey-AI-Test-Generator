@@ -377,7 +377,7 @@
     <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div class="flex items-center justify-between rounded-lg bg-background/30 px-4 py-2.5 ring-1 ring-border">
         <dt class="micro-label">Version</dt>
-        <dd class="font-mono text-sm text-foreground">v0.1.0</dd>
+        <dd class="font-mono text-sm text-foreground">v0.2.2</dd>
       </div>
       <div class="flex items-center justify-between rounded-lg bg-background/30 px-4 py-2.5 ring-1 ring-border">
         <dt class="micro-label">Storage</dt>

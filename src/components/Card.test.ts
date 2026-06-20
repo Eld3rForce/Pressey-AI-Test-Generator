@@ -1,3 +1,4 @@
+import type { Snippet } from 'svelte';
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import Card from './Card.svelte';
@@ -38,14 +39,14 @@ describe('Card', () => {
     ['md', 'p-5'],
     ['lg', 'p-8'],
   ] as const)('applies padding %s class', (padding, expectedClass) => {
-    render(Card, { padding, children: () => 'Content' });
+    render(Card, { padding, children: (() => 'Content') as unknown as Snippet });
     const section = document.querySelector('section');
     expect(section?.className).toContain(expectedClass);
   });
 
   // ── 6. Padding "none" removes padding class ────────────────────────
   it('applies no padding class for padding="none"', () => {
-    render(Card, { padding: 'none', children: () => 'Content' });
+    render(Card, { padding: 'none', children: (() => 'Content') as unknown as Snippet });
     const section = document.querySelector('section');
     expect(section?.className).not.toContain('p-3');
     expect(section?.className).not.toContain('p-5');

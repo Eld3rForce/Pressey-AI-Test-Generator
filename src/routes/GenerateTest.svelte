@@ -37,6 +37,7 @@
   let generatedTest = $state<Test | null>(null);
   let editableQuestions = $state<Question[]>([]);
   let editedTitle = $state('');
+  let showAnswers = $state(false);
 
   // ── Save state ──────────────────────────────────────────────────
   let saving = $state(false);
@@ -201,7 +202,8 @@
           selectedFile.name,
           config,
           apiKey,
-          personalityPrompt || undefined
+          personalityPrompt || undefined,
+          prompt.trim() || undefined
         );
       } else {
         test = await generateFromPrompt(
@@ -600,13 +602,22 @@
             {editableQuestions.length} questions ready
           </h2>
         </div>
-        <button
-          type="button"
-          onclick={handleReset}
-          class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition"
-        >
-          Discard & start over
-        </button>
+        <div class="flex items-center gap-4">
+          <button
+            type="button"
+            onclick={() => (showAnswers = !showAnswers)}
+            class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition"
+          >
+            {showAnswers ? 'Hide Answers' : 'Show Answers'}
+          </button>
+          <button
+            type="button"
+            onclick={handleReset}
+            class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition"
+          >
+            Discard & start over
+          </button>
+        </div>
       </div>
 
       <!-- Editable title -->
@@ -673,6 +684,7 @@
                     value={question.correctAnswer}
                     onchange={(e) => updateCorrectAnswer(i, (e.currentTarget as HTMLSelectElement).value)}
                     class="w-full bg-background/30 rounded-md border border-border px-2 py-1.5 text-sm text-foreground focus:ring-2 focus:ring-accent outline-none cursor-pointer"
+                    class:blur-answer={!showAnswers}
                   >
                     {#each question.options as opt, oi (oi)}
                       <option value={opt}>{String.fromCharCode(65 + oi)}. {opt || '(empty)'}</option>
@@ -689,6 +701,7 @@
                   oninput={(e) => updateCorrectAnswer(i, (e.currentTarget as HTMLTextAreaElement).value)}
                   rows="3"
                   class="w-full bg-background/30 rounded-md border border-border px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-accent outline-none resize-y"
+                  class:blur-answer={!showAnswers}
                 ></textarea>
               </div>
             {/if}
@@ -814,5 +827,11 @@
     box-shadow:
       0 0 0 2px var(--color-background),
       0 0 0 4px var(--color-accent);
+  }
+
+  /* ── Blur correct answers when hidden ─────────────────────── */
+  .blur-answer {
+    filter: blur(8px);
+    user-select: none;
   }
 </style>

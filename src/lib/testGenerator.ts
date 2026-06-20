@@ -228,6 +228,7 @@ export async function generateFromPrompt(
  * @param config       Test configuration.
  * @param apiKey       OpenRouter API key.
  * @param personalityPrompt  Optional personality system prefix to influence tone.
+ * @param userPrompt        Optional user-provided instructions appended as additional context.
  * @returns The generated and validated Test.
  */
 export async function generateFromFile(
@@ -235,14 +236,19 @@ export async function generateFromFile(
   fileName: string,
   config: TestConfig,
   apiKey: string,
-  personalityPrompt?: string
+  personalityPrompt?: string,
+  userPrompt?: string
 ): Promise<Test> {
-  const contextPrompt =
+  let contextPrompt =
     `Generate a test based on the following content from file "${fileName}":\n\n` +
     `${fileContent}\n\n` +
     `Create questions that test understanding of the key concepts, facts, and ideas ` +
     `presented in this content. Ensure questions cover the most important material ` +
     `from the document.`;
+
+  if (userPrompt && userPrompt.trim() !== '') {
+    contextPrompt += `\n\nADDITIONAL USER INSTRUCTIONS:\n${userPrompt}`;
+  }
 
   return generateFromPrompt(contextPrompt, config, apiKey, personalityPrompt, fileContent);
 }

@@ -145,7 +145,27 @@
   }
 
   async function handleSave() {
-    const validation = validateProvider(provider, settingsStore.settings);
+    const settingsToSave = {
+      apiKey: openrouterKey || apiKey,
+      model,
+      defaultQuestionCount: questionCount,
+      defaultMcqPercentage: mcqPercentage,
+      defaultDifficulty: difficulty,
+      personality,
+      customInstructions: isCustom ? customInstructions : '',
+      provider,
+      openaiKey,
+      anthropicKey,
+      geminiKey,
+      ollamaUrl,
+      openrouterKey: openrouterKey || apiKey,
+      includeMcq: settingsStore.settings.includeMcq,
+      includeText: settingsStore.settings.includeText,
+      enableResearch,
+      researchMaxResults,
+      researchMaxSnippetChars,
+    };
+    const validation = validateProvider(provider, settingsToSave);
     if (!validation.valid) {
       saveMessage = validation.error?.message || 'Invalid API key';
       saveMessageType = 'error';
@@ -154,24 +174,7 @@
     saving = true;
     saveMessage = '';
     try {
-      await settingsStore.saveSettings({
-        apiKey: openrouterKey || apiKey,
-        model,
-        defaultQuestionCount: questionCount,
-        defaultMcqPercentage: mcqPercentage,
-        defaultDifficulty: difficulty,
-        personality,
-        customInstructions: isCustom ? customInstructions : '',
-        provider,
-        openaiKey,
-        anthropicKey,
-        geminiKey,
-        ollamaUrl,
-        openrouterKey: openrouterKey || apiKey,
-        enableResearch,
-        researchMaxResults,
-        researchMaxSnippetChars,
-      });
+      await settingsStore.saveSettings(settingsToSave);
       saveMessage = 'Settings saved successfully';
       saveMessageType = 'success';
       setTimeout(() => {

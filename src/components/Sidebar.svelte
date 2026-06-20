@@ -1,5 +1,6 @@
 <script lang="ts">
   import { cn } from '../lib/utils';
+  import { getVersion } from '@tauri-apps/api/app';
   import FileQuestion from 'lucide-svelte/icons/file-question';
   import Play from 'lucide-svelte/icons/play';
   import History from 'lucide-svelte/icons/history';
@@ -14,6 +15,12 @@
   }
 
   let { activeRoute, onnavigate }: Props = $props();
+
+  let version = $state('0.2.2');
+
+  $effect(() => {
+    getVersion().then((v) => { version = v; }).catch(() => {});
+  });
 
   interface NavItem {
     id: RouteId;
@@ -100,6 +107,6 @@
   <!-- Footer status strip -->
   <div class="command-strip self-start">
     <span class="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_oklch(0.74_0.14_155)]"></span>
-    <span>v0.1 · local</span>
+    <span>v{version} · local</span>
   </div>
 </aside>

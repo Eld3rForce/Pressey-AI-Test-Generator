@@ -202,4 +202,61 @@ describe('TestHistory', () => {
     await fireEvent.click(takeButtons[0]);
     expect(onNavigate).toHaveBeenCalledWith('take', expect.objectContaining({ selectedTestId: 1 }));
   });
+
+  // ── 14. Renders attempt rows when attempts exist ───────────────────
+  it('renders attempt rows when attempts exist', async () => {
+    vi.mocked(getAttempts).mockImplementation(async (testId: number) => {
+      if (testId === 1) return [
+        { id: 1, testId: 1, startedAt: '2025-06-10T10:00:00Z', completedAt: '2025-06-10T10:30:00Z', score: 8, totalQuestions: 10 },
+        { id: 2, testId: 1, startedAt: '2025-06-11T14:00:00Z', completedAt: '2025-06-11T14:25:00Z', score: 9, totalQuestions: 10 },
+      ];
+      return [];
+    });
+
+    render(TestHistory);
+    await waitFor(() => {
+      expect(screen.getByText('Science Quiz')).toBeTruthy();
+    });
+
+    const attemptRows = screen.getAllByTestId('attempt-row');
+    expect(attemptRows).toHaveLength(2);
+    expect(attemptRows[0].textContent).toContain('8 / 10');
+    expect(attemptRows[1].textContent).toContain('9 / 10');
+  });
+
+  // ── 15. Shows "No attempts yet" when no attempts exist ─────────────
+  it('shows no attempts yet when no attempts exist', async () => {
+    vi.mocked(getAttempts).mockResolvedValue([]);
+
+    render(TestHistory);
+    await waitFor(() => {
+      expect(screen.getByText('Science Quiz')).toBeTruthy();
+    });
+
+    expect(screen.getAllByText('No attempts yet')).toHaveLength(3);
+  });
+
+  // ── 16. Renders multiple attempt rows with different scores ────────
+  it('renders multiple attempt rows across different tests', async () => {
+    vi.mocked(getAttempts).mockImplementation(async (testId: number) => {
+      if (testId === 1) return [
+        { id: 1, testId: 1, startedAt: '2025-06-10T10:00:00Z', completedAt: '2025-06-10T10:30:00Z', score: 8, totalQuestions: 10 },
+      ];
+      if (testId === 2) return [
+        { id: 2, testId: 2, startedAt: '2025-06-12T09:00:00Z', completedAt: '2025-06-12T09:20:00Z', score: 18, totalQuestions: 20 },
+      ];
+      return [];
+    });
+
+    render(TestHistory);
+    await waitFor(() => {
+      expect(screen.getByText('Science Quiz')).toBeTruthy();
+      expect(screen.getByText('Math Exam')).toBeTruthy();
+    });
+
+    const attemptRows = screen.getAllByTestId('attempt-row');
+    expect(attemptRows).toHaveLength(2);
+    expect(attemptRows[0].textContent).toContain('8 / 10');
+    expect(attemptRows[1].textContent).toContain('18 / 20');
+  });
 });

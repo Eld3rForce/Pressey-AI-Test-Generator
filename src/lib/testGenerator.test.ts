@@ -573,6 +573,39 @@ describe('generateFromFile', () => {
       generateFromFile('Content', 'doc.txt', DEFAULT_CONFIG, TEST_API_KEY)
     ).rejects.toThrow('must have exactly 4 options');
   });
+
+  it('should include userPrompt content in the generated prompt when provided', async () => {
+    vi.mocked(generateTest).mockResolvedValueOnce(createValidTest());
+
+    const fileContent = 'Some study material about JavaScript closures.';
+    const fileName = 'closures.txt';
+    const userPrompt = 'Focus on practical examples and real-world use cases.';
+
+    await generateFromFile(fileContent, fileName, DEFAULT_CONFIG, TEST_API_KEY, undefined, userPrompt);
+
+    expect(generateTest).toHaveBeenCalledTimes(1);
+
+    const [prompt] = vi.mocked(generateTest).mock.calls[0];
+
+    // Should contain the file-based context
+    expect(prompt).toContain('Generate a test based on the following content');
+    expect(prompt).toContain('closures.txt');
+
+    // Should contain the additional user instructions
+    expect(prompt).toContain('ADDITIONAL USER INSTRUCTIONS:');
+    expect(prompt).toContain('Focus on practical examples and real-world use cases.');
+  });
+
+  it('should not add ADDITIONAL USER INSTRUCTIONS block when userPrompt is empty', async () => {
+    vi.mocked(generateTest).mockResolvedValueOnce(createValidTest());
+
+    await generateFromFile('Content', 'test.txt', DEFAULT_CONFIG, TEST_API_KEY);
+
+    const [prompt] = vi.mocked(generateTest).mock.calls[0];
+
+    expect(prompt).toContain('Generate a test based on the following content');
+    expect(prompt).not.toContain('ADDITIONAL USER INSTRUCTIONS:');
+  });
 });
 
 // ============================================================

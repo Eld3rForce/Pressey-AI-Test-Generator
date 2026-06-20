@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getAllTests, deleteTest, getAttempts } from '../lib/dbService';
-  import type { Test } from '../lib/types';
+  import type { Test, Attempt } from '../lib/types';
   import { mapApiError } from '../lib/errorUtils';
   import { Search, ArrowUpDown, Calendar, Hash, Play, FileText, Trash2 } from 'lucide-svelte';
 
@@ -37,6 +37,7 @@
   let testToDelete = $state<Test | null>(null);
   let deleting = $state(false);
   let cancelButton = $state<HTMLButtonElement | null>(null);
+  let attemptsByTest = $state(new Map<number, Attempt[]>());
 
   // ── Lifecycle ────────────────────────────────────────────────────────
 
@@ -63,6 +64,24 @@
     error = null;
     try {
       tests = await getAllTests();
+
+      // Fetch attempts for each test in parallel
+      const map = new Map<number, Attempt[]>();
+      const fetches = tests
+        .filter((t): t is Test & { id: number } => t.id != null)
+        .map(async (t) => {
+          try {
+            const attempts = await getAttempts(t.id);
+            return { id: t.id, attempts };
+          } catch {
+            return { id: t.id, attempts: [] };
+          }
+        });
+      const results = await Promise.all(fetches);
+      for (const r of results) {
+        map.set(r.id, r.attempts);
+      }
+      attemptsByTest = map;
     } catch (e) {
       error = mapApiError(e);
     } finally {
@@ -147,20 +166,6 @@
   function handleTakeTest(test: Test): void {
     if (test.id == null) return;
     onNavigate?.('take', { selectedTestId: test.id });
-  }
-
-  async function handleReview(test: Test): Promise<void> {
-    if (test.id == null) return;
-    try {
-      const attempts = await getAttempts(test.id);
-      const latest = attempts[0];
-      onNavigate?.('review', {
-        selectedTestId: test.id,
-        selectedAttemptId: latest?.id,
-      });
-    } catch {
-      onNavigate?.('review', { selectedTestId: test.id });
-    }
   }
 
   function handleDeleteClick(test: Test): void {
@@ -371,15 +376,6 @@
 
               <button
                 type="button"
-                onclick={() => void handleReview(test)}
-                class="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-foreground transition hover:bg-accent/10"
-              >
-                <FileText size={14} />
-                Review
-              </button>
-
-              <button
-                type="button"
                 onclick={() => handleDeleteClick(test)}
                 aria-label="Delete {test.title}"
                 class="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-destructive transition hover:bg-destructive/10"
@@ -389,6 +385,30 @@
               </button>
             </div>
           </div>
+
+          <!-- Attempts list -->
+          {#if (attemptsByTest.get(test.id ?? -1)?.length ?? 0) > 0}
+            <div class="mt-4 space-y-2">
+              <p class="micro-label text-muted-foreground">Attempts</p>
+              {#each attemptsByTest.get(test.id ?? -1) ?? [] as attempt}
+                <button
+                  type="button"
+                  onclick={() => onNavigate?.('review', { selectedTestId: test.id, selectedAttemptId: attempt.id })}
+                  class="flex w-full items-center justify-between rounded-lg border border-border px-3 py-2 text-left transition hover:bg-accent/10"
+                  data-testid="attempt-row"
+                >
+                  <span class="text-sm text-muted-foreground">
+                    {formatDate(attempt.startedAt)}
+                  </span>
+                  <span class="text-sm font-medium">
+                    {attempt.score ?? '?'} / {attempt.totalQuestions ?? '?'}
+                  </span>
+                </button>
+              {/each}
+            </div>
+          {:else}
+            <p class="mt-4 text-sm text-muted-foreground">No attempts yet</p>
+          {/if}
         </article>
 
         {#if i < filteredTests.length - 1}

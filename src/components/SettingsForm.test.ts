@@ -180,4 +180,25 @@ describe('SettingsForm', () => {
       );
     });
   });
+
+  it('saves successfully when store key is empty but user enters a new key', async () => {
+    const { settingsStore } = await import('../lib/settingsStore.svelte');
+    // Store has empty openrouterKey by default — matches the "old store data" bug scenario
+    render(SettingsForm);
+    // Flush microtasks so the $effect .then() from loadSettings runs
+    await new Promise(resolve => setTimeout(resolve, 0));
+    // User types a key into the input
+    const input = screen.getByTestId('api-key-input');
+    await fireEvent.input(input, { target: { value: 'sk-or-v1-user-typed-key' } });
+    // Click Save
+    await fireEvent.click(screen.getByText('Save Settings'));
+    // Should have been called with the new key (validates against form data, not old store)
+    expect(settingsStore.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        openrouterKey: 'sk-or-v1-user-typed-key',
+        includeMcq: true,
+        includeText: true,
+      }),
+    );
+  });
 });

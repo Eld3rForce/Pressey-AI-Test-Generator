@@ -12,6 +12,9 @@ vi.mock('../lib/settingsStore.svelte', () => {
     defaultQuestionCount: 10,
     defaultMcqPercentage: 70,
     defaultDifficulty: 'Medium' as const,
+    provider: 'openrouter' as const,
+    includeMcq: true,
+    includeText: true,
   };
   return {
     settingsStore: {
@@ -69,20 +72,39 @@ describe('Settings', () => {
   // ── 4. About section shows app metadata ───────────────────────────
   it('renders About metadata fields', () => {
     render(Settings);
-    expect(screen.getByText('v0.1.0')).toBeTruthy();
-    expect(screen.getByText('Local · SQLite')).toBeTruthy();
-    expect(screen.getByText('OpenRouter')).toBeTruthy();
-    expect(screen.getByText('Tauri v2')).toBeTruthy();
+    const about = screen.getByTestId('section-about');
+    expect(within(about).getByText('v0.2.2')).toBeTruthy();
+    expect(within(about).getByText('Local · SQLite')).toBeTruthy();
+    expect(within(about).getByText('openrouter')).toBeTruthy();
+    expect(within(about).getByText('Tauri v2')).toBeTruthy();
   });
 
-  // ── 5. Default preferences inputs are present ────────────────────
+  // ── 5. About provider displays active provider from store ─────────
+  it('renders the active provider from settingsStore', () => {
+    // Set a non-default provider before render to prove the About
+    // section reads from the store rather than hardcoding a value.
+    settingsStore.settings.provider = 'anthropic';
+    render(Settings);
+    const about = screen.getByTestId('section-about');
+    expect(within(about).getByText('anthropic')).toBeTruthy();
+  });
+
+  // ── 6. Toggle switches are rendered in Default Preferences ───────
+  it('renders includeMcq and includeText toggles', () => {
+    render(Settings);
+    const prefs = screen.getByTestId('section-preferences');
+    expect(within(prefs).getByTestId('include-mcq-toggle')).toBeTruthy();
+    expect(within(prefs).getByTestId('include-text-toggle')).toBeTruthy();
+  });
+
+  // ── 7. Default preferences inputs are present ────────────────────
   it('renders default preference inputs', () => {
     render(Settings);
     expect(screen.getByLabelText('Default Question Count')).toBeTruthy();
     expect(screen.getByLabelText('Default MCQ %')).toBeTruthy();
   });
 
-  // ── 6. Appearance controls are present ───────────────────────────
+  // ── 8. Appearance controls are present ───────────────────────────
   it('renders appearance controls', () => {
     render(Settings);
     expect(screen.getByTestId('theme-dark')).toBeTruthy();
@@ -91,14 +113,14 @@ describe('Settings', () => {
     expect(screen.getByTestId('accent-magenta')).toBeTruthy();
   });
 
-  // ── 7. Both action buttons exist ──────────────────────────────────
+  // ── 9. Both action buttons exist ──────────────────────────────────
   it('renders save and reset buttons', () => {
     render(Settings);
     expect(screen.getByTestId('save-all-button')).toBeTruthy();
     expect(screen.getByTestId('reset-button')).toBeTruthy();
   });
 
-  // ── 8. Save All Settings persists state ───────────────────────────
+  // ── 10. Save All Settings persists state ──────────────────────────
   it('Save All Settings calls saveSettings and shows toast', async () => {
     render(Settings);
 
@@ -120,6 +142,8 @@ describe('Settings', () => {
     expect(saved.defaultQuestionCount).toBe(10);
     expect(saved.defaultMcqPercentage).toBe(70);
     expect(saved.defaultDifficulty).toBe('Medium');
+    expect(saved.includeMcq).toBe(true);
+    expect(saved.includeText).toBe(true);
     expect(settingsStore.updateSetting).toHaveBeenCalledWith('theme', 'dark');
     expect(settingsStore.updateSetting).toHaveBeenCalledWith('accent', 'amber');
 
@@ -129,7 +153,7 @@ describe('Settings', () => {
     expect(toast.textContent).toContain('Settings saved successfully');
   });
 
-  // ── 9. Toast auto-dismisses after 3s ──────────────────────────────
+  // ── 11. Toast auto-dismisses after 3s ─────────────────────────────
   it('auto-dismisses the success toast after 3 seconds', async () => {
     vi.useFakeTimers();
     try {
@@ -156,7 +180,7 @@ describe('Settings', () => {
     }
   });
 
-  // ── 10. Reset requires confirmation ──────────────────────────────
+  // ── 12. Reset requires confirmation ──────────────────────────────
   it('clicking Reset opens a confirmation modal', async () => {
     render(Settings);
     await fireEvent.click(screen.getByTestId('reset-button'));
@@ -168,7 +192,7 @@ describe('Settings', () => {
     expect(settingsStore.resetToDefaults).not.toHaveBeenCalled();
   });
 
-  // ── 11. Reset confirmation calls resetToDefaults ─────────────────
+  // ── 13. Reset confirmation calls resetToDefaults ─────────────────
   it('confirming reset calls resetToDefaults and closes modal', async () => {
     render(Settings);
     await fireEvent.click(screen.getByTestId('reset-button'));
@@ -185,7 +209,7 @@ describe('Settings', () => {
     });
   });
 
-  // ── 12. Cancelling reset does not call resetToDefaults ────────────
+  // ── 14. Cancelling reset does not call resetToDefaults ────────────
   it('cancelling reset keeps current settings', async () => {
     render(Settings);
     await fireEvent.click(screen.getByTestId('reset-button'));
@@ -199,7 +223,7 @@ describe('Settings', () => {
     });
   });
 
-  // ── 13. Reset success shows toast ────────────────────────────────
+  // ── 15. Reset success shows toast ────────────────────────────────
   it('reset success shows a confirmation toast', async () => {
     render(Settings);
     await fireEvent.click(screen.getByTestId('reset-button'));
@@ -209,7 +233,7 @@ describe('Settings', () => {
     expect(toast.textContent).toContain('Settings reset to defaults');
   });
 
-  // ── 14. Default question count input is wired ───────────────────
+  // ── 16. Default question count input is wired ───────────────────
   it('changing default question count updates save payload', async () => {
     render(Settings);
 
@@ -229,7 +253,7 @@ describe('Settings', () => {
     });
   });
 
-  // ── 15. Failure path shows error toast ──────────────────────────
+  // ── 17. Failure path shows error toast ──────────────────────────
   it('shows an error toast when save fails', async () => {
     vi.mocked(settingsStore.saveSettings).mockRejectedValueOnce(new Error('DB down'));
 

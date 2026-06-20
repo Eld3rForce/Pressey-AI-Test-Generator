@@ -2,6 +2,10 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import Sidebar from './Sidebar.svelte';
 
+vi.mock('@tauri-apps/api/app', () => ({
+  getVersion: vi.fn().mockResolvedValue('0.2.2'),
+}));
+
 describe('Sidebar', () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -82,9 +86,9 @@ describe('Sidebar', () => {
   });
 
   // ── 7. Renders version status strip ────────────────────────────────
-  it('renders version status', () => {
+  it('renders version status', async () => {
     render(Sidebar, defaultProps);
-    expect(screen.getByText('v0.1 · local')).toBeTruthy();
+    expect(await screen.findByText('v0.2.2 · local')).toBeTruthy();
   });
 
   // ── 8. Renders nav descriptions ────────────────────────────────────

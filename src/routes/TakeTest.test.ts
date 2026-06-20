@@ -49,6 +49,31 @@ vi.mock('../lib/dbService', () => ({
   getExplanations: vi.fn().mockResolvedValue([]),
 }));
 
+// ── Mock marking module ────────────────────────────────────────────────
+vi.mock('../lib/marking', () => ({
+  generateMarking: vi.fn().mockImplementation(
+    async (
+      _test: { questions: Array<{ id?: number; type: 'mcq' | 'text' }> },
+      _answers: Map<number, string>,
+      _settings: unknown,
+      _provider?: string,
+    ) => {
+      // Reproduce the real logic: MCQ → null, text without answer → false
+      const result = new Map<number, boolean | null>();
+      for (const q of _test.questions) {
+        if (q.id == null) continue;
+        if (q.type === 'mcq') {
+          result.set(q.id, null);
+        } else {
+          const ua = _answers.get(q.id);
+          result.set(q.id, !!(ua && ua.trim().length > 0));
+        }
+      }
+      return result;
+    },
+  ),
+}));
+
 import TakeTest from './TakeTest.svelte';
 import { getTest, createAttempt, completeAttempt, saveResponses } from '../lib/dbService';
 

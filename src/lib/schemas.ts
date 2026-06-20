@@ -44,9 +44,19 @@ export const ResearchDocResultSchema = z.object({
 export const ResearchResultsArraySchema = z.array(ResearchResultSchema);
 export const ResearchDocResultsArraySchema = z.array(ResearchDocResultSchema);
 
+export const MarkingResponseSchema = z.object({
+  markings: z.array(
+    z.object({
+      questionId: z.number(),
+      isCorrect: z.boolean(),
+    }),
+  ),
+});
+
 // Inferred TypeScript types from Zod schemas
 export type ValidatedQuestion = z.infer<typeof QuestionSchema>;
 export type ValidatedTestResponse = z.infer<typeof TestResponseSchema>;
 export type ValidatedExplanationResponse = z.infer<typeof ExplanationResponseSchema>;
+export type ValidatedMarkingResponse = z.infer<typeof MarkingResponseSchema>;
 export type ValidatedResearchResult = z.infer<typeof ResearchResultSchema>;
 export type ValidatedResearchDocResult = z.infer<typeof ResearchDocResultSchema>;

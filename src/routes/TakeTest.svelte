@@ -7,6 +7,8 @@
   } from '../lib/dbService';
   import { mapApiError } from '../lib/errorUtils';
   import type { Test, Question, Response } from '../lib/types';
+  import { generateMarking } from '../lib/marking';
+  import { settingsStore } from '../lib/settingsStore.svelte';
 
   // ── Props ─────────────────────────────────────────────────────────────
 
@@ -165,24 +167,6 @@
     return false;
   }
 
-  function scoreAll(): { correct: number; total: number } {
-    if (!test) return { correct: 0, total: 0 };
-    let correct = 0;
-    for (const q of test.questions) {
-      if (q.id == null) continue;
-      const ua = answers.get(q.id);
-      if (ua == null) continue;
-      if (q.type === 'mcq') {
-        if (isMcqCorrect(ua, q.correctAnswer, q.options ?? [])) correct++;
-      } else {
-        if (ua.trim().toLowerCase() === q.correctAnswer.trim().toLowerCase()) {
-          correct++;
-        }
-      }
-    }
-    return { correct, total: test.questions.length };
-  }
-
   function goTo(index: number) {
     if (!test) return;
     if (index < 0 || index >= test.questions.length) return;
@@ -228,17 +212,39 @@
       const aid = await createAttempt(test.id);
       attemptId = aid;
 
-      const { correct, total: t } = scoreAll();
+      // ── AI marking for text questions ──────────────────────────────
+      const textQuestions = test.questions.filter((q) => q.type === 'text' && q.id != null);
+      let aiMarkings = new Map<number, boolean | null>();
+      if (textQuestions.length > 0) {
+        try {
+          aiMarkings = await generateMarking(
+            test,
+            answers,
+            settingsStore.settings,
+            settingsStore.settings.provider,
+          );
+        } catch (e) {
+          console.error('AI marking failed:', e);
+          submitError = 'AI marking failed. Please retry.';
+          submitting = false;
+          return;
+        }
+      }
 
+      // ── Build responses with the correct marking strategy ──────────
       const responses: Response[] = test.questions
         .filter((q) => q.id != null)
         .map((q) => {
           const ua = answers.get(q.id!);
-          const isCorrect =
-            ua != null &&
-            (q.type === 'mcq'
-              ? isMcqCorrect(ua, q.correctAnswer, q.options ?? [])
-              : ua.trim().toLowerCase() === q.correctAnswer.trim().toLowerCase());
+          let isCorrect = false;
+          if (ua != null) {
+            if (q.type === 'mcq') {
+              isCorrect = isMcqCorrect(ua, q.correctAnswer, q.options ?? []);
+            } else {
+              const aiResult = aiMarkings.get(q.id!);
+              isCorrect = aiResult === true;
+            }
+          }
           return {
             attemptId: aid,
             questionId: q.id!,
@@ -246,6 +252,9 @@
             isCorrect,
           };
         });
+
+      const correct = responses.filter((r) => r.isCorrect).length;
+      const t = test.questions.length;
 
       await saveResponses(responses);
       await completeAttempt(aid, correct, t);
