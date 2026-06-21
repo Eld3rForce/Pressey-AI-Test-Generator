@@ -1,0 +1,138 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+# `contents: write` is required to create / publish the GitHub Release.
+permissions:
+  contents: write
+
+# Avoid running two releases for the same tag at the same time.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }}${{ matrix.target != '' && format(' [{0}]', matrix.target) || '' }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target aarch64-apple-darwin
+            target: aarch64-apple-darwin
+          - platform: macos-latest
+            args: --target x86_64-apple-darwin
+            target: x86_64-apple-darwin
+          - platform: ubuntu-22.04
+            args: ''
+            target: ''
+          - platform: windows-latest
+            args: ''
+            target: ''
+
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # macOS cross-compile: install the target triple before tauri-action runs.
+      - name: Install Rust target
+        if: matrix.target != ''
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # Speeds up Rust compilation across runs.
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      # --- Real release path: tag push --------------------------------------
+      # tauri-action builds the bundles, creates a draft GitHub Release, and
+      # uploads the .msi / *_setup.exe / .deb / .AppImage / .dmg assets to it.
+      - name: Build and publish release (tauri-action)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: tauri-apps/tauri-action@v0
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Pressey v${{ github.ref_name }}'
+          releaseDraft: true
+          prerelease: false
+          releaseBody: 'See the assets below to download the Pressey AI Test Generator for your platform.'
+          args: ${{ matrix.args }}
+
+      # --- Manual trigger path: workflow_dispatch ----------------------------
+      # tauri-action needs a real git tag, so for manual runs we just build
+      # the bundles locally (no release is created).
+      - name: Install dependencies
+        if: github.event_name == 'workflow_dispatch'
+        run: npm ci
+
+      - name: Build bundles (manual trigger)
+        if: github.event_name == 'workflow_dispatch'
+        run: npm run tauri -- build ${{ matrix.args }}
+
+      # Stash the bundle outputs as workflow artifacts so the SHA256SUMS job
+      # can download them from a single ubuntu runner.
+      - name: Upload bundle artifacts
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundles-${{ matrix.platform }}${{ matrix.target != '' && format('-{0}', matrix.target) || '' }}
+          path: |
+            src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/release/bundle/**/*.exe
+            src-tauri/target/release/bundle/**/*.deb
+            src-tauri/target/release/bundle/**/*.AppImage
+            src-tauri/target/release/bundle/**/*.dmg
+            src-tauri/target/release/bundle/**/*.app
+          if-no-files-found: warn
+          retention-days: 7
+
+  release:
+    name: Attach SHA256SUMS
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Download all bundle artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate SHA256SUMS.txt
+        run: |
+          set -euo pipefail
+          cd artifacts
+          # Hash installable bundles only. .app directories (and their
+          # internal binaries) are intentionally excluded.
+          find . -type f \
+            \( -name "*.msi" -o -name "*.exe" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.dmg" \) \
+            -print0 \
+            | xargs -0 sha256sum \
+            | sort -k 2 \
+            > SHA256SUMS.txt
+          echo "--- SHA256SUMS.txt ---"
+          cat SHA256SUMS.txt
+
+      - name: Upload SHA256SUMS to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: artifacts/SHA256SUMS.txt
+          fail_on_unmatched_files: true
