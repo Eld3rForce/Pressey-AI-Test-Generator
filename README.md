@@ -5,7 +5,7 @@ exportable test in seconds. Built with **Tauri v2** (Rust backend) and a
 Svelte 5 + Tailwind v4 frontend, Pressey is local-first, multi-provider,
 and ships installers for Windows, macOS, and Linux.
 
-> **Latest release: v0.3.0** — see [What's New](#whats-new-in-v026) below.
+> **Latest release: v0.3.0** — see [What's New](#whats-new-in-v030) below.
 
 ---
 
@@ -18,6 +18,11 @@ and ships installers for Windows, macOS, and Linux.
   Hard difficulty.
 - **Source material ingestion** — upload `.txt`, `.md`, or `.pdf` files;
   pressey extracts the text on the Rust side and feeds it to the generator.
+- **URL ingestion** — paste URLs in the prompt and pressey fetches them
+  (HTML via Readability, PDF via a Rust Tauri command) and folds the
+  extracted text into the LLM context, so the generator can author
+  questions grounded in the linked material. Opt-in per URL and per
+  Settings toggle.
 - **Inline editing & review** — every generated question, option, answer, and
   explanation is editable in-place before you save; "Show Answers" reveals
   model answers and explanations.
@@ -35,13 +40,6 @@ and ships installers for Windows, macOS, and Linux.
 
 ---
 
-## What's New in v0.2.6
-
-- **Generate Test layout balance** — the prompt/topic card and the
-  Configuration sidebar now share the same height on desktop. The prompt
-  textarea flex-grows to fill the card instead of leaving an empty gap
-  below the topic input.
-
 ## What's New in v0.3.0
 
 - **URL ingestion** — When enabled in Settings, URLs pasted into the
@@ -51,6 +49,13 @@ and ships installers for Windows, macOS, and Linux.
   lint/typecheck/test issues.
 - **Internal** — Added `@mozilla/readability` for content extraction; new
   `fetch_and_extract_pdf_url` Tauri command for PDF URL support.
+
+## What's New in v0.2.6
+
+- **Generate Test layout balance** — the prompt/topic card and the
+  Configuration sidebar now share the same height on desktop. The prompt
+  textarea flex-grows to fill the card instead of leaving an empty gap
+  below the topic input.
 
 ## What's New in v0.2.5
 
