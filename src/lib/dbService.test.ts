@@ -21,6 +21,10 @@ import {
   completeAttempt,
   getAttempts,
   getAttempt,
+  createPartialAttempt,
+  getInProgressAttempt,
+  cancelPartialAttempt,
+  updateAttemptProgress,
   saveResponse,
   saveResponses,
   getResponses,
@@ -519,6 +523,143 @@ describe('getAttempt', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await expect(getAttempt(1)).rejects.toThrow('Fetch error');
+    expect(spy).toHaveBeenCalled();
+
+    spy.mockRestore();
+  });
+});
+
+// ── partial attempt CRUD ─────────────────────────────────────────────
+describe('partial attempt CRUD', () => {
+  it('createPartialAttempt inserts a new partial attempt with current_index', async () => {
+    mockSelect.mockResolvedValueOnce([]);
+    mockExecute.mockResolvedValueOnce({ rowsAffected: 1, lastInsertId: 50 });
+
+    const id = await createPartialAttempt(7, 3);
+
+    expect(id).toBe(50);
+
+    const selectSql = mockSelect.mock.calls[0][0] as string;
+    expect(selectSql).toContain('WHERE test_id = ?');
+    expect(selectSql).toContain('completed_at IS NULL');
+    expect(selectSql).toContain('ORDER BY started_at DESC');
+    expect(selectSql).toContain('LIMIT 1');
+    expect(mockSelect.mock.calls[0][1]).toEqual([7]);
+
+    const insertSql = mockExecute.mock.calls[0][0] as string;
+    expect(insertSql).toContain('INSERT INTO attempts');
+    expect(insertSql).toContain('test_id');
+    expect(insertSql).toContain('current_index');
+    expect(mockExecute.mock.calls[0][1]).toEqual([7, 3]);
+  });
+
+  it('createPartialAttempt upserts: second call updates the existing partial attempt', async () => {
+    // First call: no existing partial → INSERT, returns new id 50
+    mockSelect.mockResolvedValueOnce([]);
+    mockExecute.mockResolvedValueOnce({ rowsAffected: 1, lastInsertId: 50 });
+
+    const id1 = await createPartialAttempt(7, 3);
+    expect(id1).toBe(50);
+
+    // Second call: existing partial found → UPDATE, returns same id 50
+    mockSelect.mockResolvedValueOnce([
+      {
+        id: 50,
+        test_id: 7,
+        started_at: '2024-01-01T10:00:00',
+        completed_at: null,
+        score: null,
+        total_questions: null,
+        current_index: 3,
+      },
+    ]);
+    mockExecute.mockResolvedValueOnce({ rowsAffected: 1, lastInsertId: 50 });
+
+    const id2 = await createPartialAttempt(7, 7);
+    expect(id2).toBe(50);
+
+    const insertCalls = mockExecute.mock.calls.filter((c: unknown[]) =>
+      (c[0] as string).includes('INSERT INTO attempts')
+    );
+    const updateCalls = mockExecute.mock.calls.filter((c: unknown[]) =>
+      (c[0] as string).includes('UPDATE attempts SET current_index')
+    );
+    expect(insertCalls).toHaveLength(1);
+    expect(updateCalls).toHaveLength(1);
+
+    const updateBindings = mockExecute.mock.calls
+      .map((c: unknown[]) => c[1] as unknown[])
+      .find((b: unknown[]) => Array.isArray(b) && b.length === 2 && b[0] === 7 && b[1] === 50);
+    expect(updateBindings).toEqual([7, 50]);
+  });
+
+  it('getInProgressAttempt returns the most recent partial attempt', async () => {
+    mockSelect.mockResolvedValueOnce([
+      {
+        id: 12,
+        test_id: 7,
+        started_at: '2024-01-02T10:00:00',
+        completed_at: null,
+        score: null,
+        total_questions: null,
+        current_index: 5,
+      },
+    ]);
+
+    const attempt = await getInProgressAttempt(7);
+
+    expect(attempt).not.toBeNull();
+    expect(attempt!.id).toBe(12);
+    expect(attempt!.testId).toBe(7);
+    expect(attempt!.completedAt).toBeUndefined();
+    expect(attempt!.currentIndex).toBe(5);
+
+    const sql = mockSelect.mock.calls[0][0] as string;
+    expect(sql).toContain('WHERE test_id = ?');
+    expect(sql).toContain('completed_at IS NULL');
+    expect(sql).toContain('ORDER BY started_at DESC');
+    expect(sql).toContain('LIMIT 1');
+  });
+
+  it('getInProgressAttempt returns null when no partial attempt exists', async () => {
+    mockSelect.mockResolvedValueOnce([]);
+
+    const result = await getInProgressAttempt(7);
+    expect(result).toBeNull();
+  });
+
+  it('cancelPartialAttempt deletes the partial attempt', async () => {
+    await cancelPartialAttempt(50);
+
+    const sql = mockExecute.mock.calls[0][0] as string;
+    expect(sql).toContain('DELETE FROM attempts WHERE id = ?');
+    expect(mockExecute.mock.calls[0][1]).toEqual([50]);
+  });
+
+  it('updateAttemptProgress updates current_index', async () => {
+    await updateAttemptProgress(50, 4);
+
+    const sql = mockExecute.mock.calls[0][0] as string;
+    expect(sql).toContain('UPDATE attempts SET current_index = ?');
+    expect(sql).toContain('WHERE id = ?');
+    expect(mockExecute.mock.calls[0][1]).toEqual([4, 50]);
+  });
+
+  it('propagates database errors from createPartialAttempt', async () => {
+    mockSelect.mockRejectedValueOnce(new Error('Upsert error'));
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(createPartialAttempt(1, 0)).rejects.toThrow('Upsert error');
+    expect(spy).toHaveBeenCalled();
+
+    spy.mockRestore();
+  });
+
+  it('propagates database errors from getInProgressAttempt', async () => {
+    mockSelect.mockRejectedValueOnce(new Error('Resume error'));
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(getInProgressAttempt(1)).rejects.toThrow('Resume error');
     expect(spy).toHaveBeenCalled();
 
     spy.mockRestore();

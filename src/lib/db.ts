@@ -140,8 +140,17 @@ export async function runMigrations(db: Database): Promise<void> {
       await db.execute('UPDATE schema_version SET version = 2');
     }
 
+    // ── Migration v3: partial attempt progress ──────────────────────
+    if (currentVersion < 3) {
+      await db.execute(`
+        ALTER TABLE attempts ADD COLUMN current_index INTEGER NOT NULL DEFAULT 0
+      `);
+
+      await db.execute('UPDATE schema_version SET version = 3');
+    }
+
     // Future migration versions go here:
-    // if (currentVersion < 3) { ... }
+    // if (currentVersion < 4) { ... }
   } catch (error) {
     console.error('Failed to run migrations:', error);
     throw error;

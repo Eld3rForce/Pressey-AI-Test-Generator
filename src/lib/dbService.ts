@@ -38,6 +38,7 @@ interface AttemptRow {
   completed_at: string | null;
   score: number | null;
   total_questions: number | null;
+  current_index: number;
 }
 
 interface ResponseRow {
@@ -318,6 +319,105 @@ export async function createAttempt(testId: number): Promise<number> {
 }
 
 /**
+ * Create or update a partial (in-progress) attempt for a test.
+ * Upsert: if a partial attempt (completed_at IS NULL) already exists for testId,
+ * updates its current_index and returns its id. Otherwise inserts a new partial
+ * attempt with the given current_index and returns the new id.
+ */
+export async function createPartialAttempt(
+  testId: number,
+  currentIndex: number
+): Promise<number> {
+  const db = await getDb();
+  try {
+    const existing = await db.select<AttemptRow[]>(
+      `SELECT * FROM attempts WHERE test_id = ? AND completed_at IS NULL ORDER BY started_at DESC LIMIT 1`,
+      [testId]
+    );
+    if (existing.length > 0) {
+      await db.execute(
+        `UPDATE attempts SET current_index = ? WHERE id = ?`,
+        [currentIndex, existing[0].id]
+      );
+      return existing[0].id;
+    }
+    const result = await db.execute(
+      `INSERT INTO attempts (test_id, current_index) VALUES (?, ?)`,
+      [testId, currentIndex]
+    );
+    return result.lastInsertId!;
+  } catch (error) {
+    console.error('createPartialAttempt failed:', error);
+    wrapDbError(error, 'createPartialAttempt');
+  }
+}
+
+/**
+ * Fetch the latest in-progress (completed_at IS NULL) attempt for a test.
+ * Returns null when no partial attempt exists.
+ */
+export async function getInProgressAttempt(testId: number): Promise<Attempt | null> {
+  const db = await getDb();
+  try {
+    const rows = await db.select<AttemptRow[]>(
+      `SELECT * FROM attempts WHERE test_id = ? AND completed_at IS NULL ORDER BY started_at DESC LIMIT 1`,
+      [testId]
+    );
+
+    if (rows.length === 0) {
+      return null;
+    }
+
+    const a = rows[0];
+    return {
+      id: a.id,
+      testId: a.test_id,
+      startedAt: a.started_at,
+      completedAt: a.completed_at ?? undefined,
+      score: a.score ?? undefined,
+      totalQuestions: a.total_questions ?? undefined,
+      currentIndex: a.current_index,
+    };
+  } catch (error) {
+    console.error('getInProgressAttempt failed:', error);
+    wrapDbError(error, 'getInProgressAttempt');
+  }
+}
+
+/**
+ * Delete a partial attempt row by id. Used when the user cancels before
+ * completing. Does not add a cancelled_at column — pure DELETE.
+ */
+export async function cancelPartialAttempt(attemptId: number): Promise<void> {
+  const db = await getDb();
+  try {
+    await db.execute(`DELETE FROM attempts WHERE id = ?`, [attemptId]);
+  } catch (error) {
+    console.error('cancelPartialAttempt failed:', error);
+    wrapDbError(error, 'cancelPartialAttempt');
+  }
+}
+
+/**
+ * Update the current_index (resume position) of an existing attempt.
+ */
+export async function updateAttemptProgress(
+  attemptId: number,
+  currentIndex: number
+): Promise<void> {
+  const db = await getDb();
+  try {
+    await db.execute(
+      `UPDATE attempts SET current_index = ? WHERE id = ?`,
+      [currentIndex, attemptId]
+    );
+  } catch (error) {
+    console.error('updateAttemptProgress failed:', error);
+    wrapDbError(error, 'updateAttemptProgress');
+  }
+}
+
+/**
  * Mark an attempt as completed with a final score.
  */
 export async function completeAttempt(
@@ -359,6 +459,7 @@ export async function getAttempts(testId: number): Promise<Attempt[]> {
       completedAt: a.completed_at ?? undefined,
       score: a.score ?? undefined,
       totalQuestions: a.total_questions ?? undefined,
+      currentIndex: a.current_index,
     }));
   } catch (error) {
     console.error('getAttempts failed:', error);
@@ -389,6 +490,7 @@ export async function getAttempt(id: number): Promise<Attempt | null> {
       completedAt: a.completed_at ?? undefined,
       score: a.score ?? undefined,
       totalQuestions: a.total_questions ?? undefined,
+      currentIndex: a.current_index,
     };
   } catch (error) {
     console.error('getAttempt failed:', error);

@@ -63,6 +63,7 @@ export interface Attempt {
   completedAt?: string;
   score?: number;
   totalQuestions?: number;
+  currentIndex?: number;
 }
 
 // --- Response ---

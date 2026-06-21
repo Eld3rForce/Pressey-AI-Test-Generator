@@ -52,7 +52,7 @@ describe('initDatabase', () => {
     expect(sqls.some((s) => s.includes('CREATE TABLE IF NOT EXISTS attempts'))).toBe(true);
     expect(sqls.some((s) => s.includes('CREATE TABLE IF NOT EXISTS responses'))).toBe(true);
     expect(sqls.some((s) => s.includes('CREATE TABLE IF NOT EXISTS explanations'))).toBe(true);
-    expect(sqls.some((s) => s.includes('UPDATE schema_version SET version = 2'))).toBe(true);
+    expect(sqls.some((s) => s.includes('UPDATE schema_version SET version = 3'))).toBe(true);
   });
 
   it('returns the cached singleton on repeat calls', async () => {
@@ -146,13 +146,13 @@ describe('runMigrations', () => {
     expect(sqls.some((s) => s.includes('CREATE TABLE IF NOT EXISTS attempts'))).toBe(true);
     expect(sqls.some((s) => s.includes('CREATE TABLE IF NOT EXISTS responses'))).toBe(true);
     expect(sqls.some((s) => s.includes('CREATE TABLE IF NOT EXISTS explanations'))).toBe(true);
-    expect(sqls.some((s) => s.includes('UPDATE schema_version SET version = 2'))).toBe(true);
+    expect(sqls.some((s) => s.includes('UPDATE schema_version SET version = 3'))).toBe(true);
   });
 
   it('skips app table creation when version is already >= 1', async () => {
     mockSel
       .mockResolvedValueOnce([{ count: 1 }])
-      .mockResolvedValueOnce([{ version: 2 }]);
+      .mockResolvedValueOnce([{ version: 3 }]);
 
     const db = { execute: mockExec, select: mockSel } as unknown as Database;
     await runMigrations(db);
@@ -174,6 +174,37 @@ describe('runMigrations', () => {
     expect(spy).toHaveBeenCalled();
 
     spy.mockRestore();
+  });
+
+  it('v3 migration adds current_index column to attempts', async () => {
+    mockSel
+      .mockResolvedValueOnce([{ count: 0 }])
+      .mockResolvedValueOnce([{ version: 0 }]);
+
+    const db = { execute: mockExec, select: mockSel } as unknown as Database;
+    await runMigrations(db);
+
+    const sqls = mockExec.mock.calls.map((c: unknown[]) => c[0] as string);
+    const alterSql = sqls.find((s) => s.includes('ALTER TABLE attempts'));
+    expect(alterSql).toBeDefined();
+    expect(alterSql).toMatch(/ADD\s+COLUMN\s+current_index/i);
+    expect(alterSql).toMatch(/INTEGER\s+NOT\s+NULL\s+DEFAULT\s+0/i);
+    expect(sqls).toContain('UPDATE schema_version SET version = 3');
+  });
+
+  it('existing attempts have current_index = 0 after v3 migration', async () => {
+    mockSel
+      .mockResolvedValueOnce([{ count: 1 }])
+      .mockResolvedValueOnce([{ version: 2 }]);
+
+    const db = { execute: mockExec, select: mockSel } as unknown as Database;
+    await runMigrations(db);
+
+    const sqls = mockExec.mock.calls.map((c: unknown[]) => c[0] as string);
+    const alterSql = sqls.find((s) => s.includes('ALTER TABLE attempts'));
+    expect(alterSql).toBeDefined();
+    expect(alterSql).toMatch(/DEFAULT\s+0/i);
+    expect(sqls).toContain('UPDATE schema_version SET version = 3');
   });
 });
 
