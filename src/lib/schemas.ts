@@ -53,6 +53,19 @@ export const MarkingResponseSchema = z.object({
   ),
 });
 
+export const UrlFetchResultSchema = z.object({
+  url: z.string().url(),
+  title: z.string(),
+  content: z.string(),
+  contentLength: z.number().int().nonnegative(),
+});
+
+export const PdfFetchResultSchema = z.object({
+  url: z.string().url(),
+  content: z.string(),
+  pageCount: z.number().int().positive(),
+});
+
 // Inferred TypeScript types from Zod schemas
 export type ValidatedQuestion = z.infer<typeof QuestionSchema>;
 export type ValidatedTestResponse = z.infer<typeof TestResponseSchema>;
@@ -60,3 +73,5 @@ export type ValidatedExplanationResponse = z.infer<typeof ExplanationResponseSch
 export type ValidatedMarkingResponse = z.infer<typeof MarkingResponseSchema>;
 export type ValidatedResearchResult = z.infer<typeof ResearchResultSchema>;
 export type ValidatedResearchDocResult = z.infer<typeof ResearchDocResultSchema>;
+export type ValidatedUrlFetchResult = z.infer<typeof UrlFetchResultSchema>;
+export type ValidatedPdfFetchResult = z.infer<typeof PdfFetchResultSchema>;
