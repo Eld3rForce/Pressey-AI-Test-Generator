@@ -61,9 +61,11 @@ jobs:
           workspaces: src-tauri -> target
 
       # Must run before any tauri build: tauri-action needs node_modules populated.
+      # `npm install` (not `npm ci`) — the lockfile lacks platform-specific
+      # optional deps for non-Windows runners and only resolves them on-host.
       - name: Install dependencies
         if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
-        run: npm ci
+        run: npm install
 
       # --- Real release path: tag push --------------------------------------
       # tauri-action builds the bundles, creates a draft GitHub Release, and
