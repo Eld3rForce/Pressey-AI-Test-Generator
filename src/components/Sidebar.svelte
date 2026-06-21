@@ -16,7 +16,7 @@
 
   let { activeRoute, onnavigate }: Props = $props();
 
-  let version = $state('0.2.3');
+  let version = $state('0.2.4');
 
   $effect(() => {
     getVersion().then((v) => { version = v; }).catch(() => {});
