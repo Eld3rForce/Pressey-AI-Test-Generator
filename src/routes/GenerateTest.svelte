@@ -6,6 +6,7 @@
   import { createTest } from '../lib/dbService';
   import { settingsStore } from '../lib/settingsStore.svelte';
   import { buildPersonalityPrefix } from '../lib/personalities';
+  import { extractUrls } from '../lib/urlExtractor';
   import Tooltip from '../components/Tooltip.svelte';
   import type { Test, Question, TestConfig } from '../lib/types';
 
@@ -93,6 +94,14 @@
   );
   const canSave = $derived(
     !saving && !generating && generatedTest !== null && editableQuestions.length > 0
+  );
+  // URLs detected in the current prompt text (re-runs whenever prompt changes).
+  const detectedUrls = $derived(extractUrls(prompt));
+  // Badge is only visible when URL fetching is enabled AND at least one URL
+  // is detected in the prompt — keeps the UI quiet by default and respects
+  // the user's setting.
+  const showBadge = $derived(
+    settingsStore.settings.enableUrlFetch === true && detectedUrls.length > 0
   );
 
   // ── Helpers ─────────────────────────────────────────────────────
@@ -362,7 +371,15 @@
           class="w-full bg-background/30 rounded-lg border border-border px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-accent outline-none transition resize-none flex-1 min-h-48"
         ></textarea>
       </div>
-      <p data-testid="url-detection-badge"></p>
+      {#if showBadge}
+        <p
+          data-testid="url-detection-badge"
+          class="text-xs text-muted-foreground mt-1"
+          title="URL content will be sent to your selected LLM provider to help generate questions."
+        >
+          {detectedUrls.length} URL{detectedUrls.length === 1 ? '' : 's'} detected
+        </p>
+      {/if}
       <div>
         <label class="micro-label mb-2 block" for="topic-input">Topic (optional)</label>
         <input
