@@ -531,10 +531,11 @@
             type="button"
             class="btn btn-primary"
             onclick={() => {
+              const t = test;
               const latest = completedAttempts[0];
-              if (latest?.id != null && test.id != null) {
+              if (t != null && latest?.id != null) {
                 appStore.navigateTo('review', {
-                  selectedTestId: test.id,
+                  selectedTestId: t.id,
                   selectedAttemptId: latest.id,
                 });
               }
@@ -545,8 +546,10 @@
           <button
             type="button"
             class="btn btn-secondary"
-            onclick={() =>
-              test.id != null && appStore.navigateTo('take', { selectedTestId: test.id })}
+            onclick={() => {
+              const t = test;
+              if (t != null) appStore.navigateTo('take', { selectedTestId: t.id });
+            }}
           >
             Retake
           </button>

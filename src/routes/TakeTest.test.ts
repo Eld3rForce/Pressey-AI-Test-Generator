@@ -29,6 +29,43 @@ const mockTest = vi.hoisted(() => ({
   updatedAt: '2025-01-01T00:00:00Z',
 }));
 
+const mockTest2 = vi.hoisted(() => ({
+  id: 2,
+  title: 'History Quiz',
+  topic: 'World History',
+  difficulty: 'Easy',
+  questionCount: 5,
+  mcqPercentage: 80,
+  questions: [],
+  createdAt: '2025-01-02T00:00:00Z',
+  updatedAt: '2025-01-02T00:00:00Z',
+}));
+
+const mockEmptyTest = vi.hoisted(() => ({
+  id: 3,
+  title: 'Empty Quiz',
+  topic: 'Nothing',
+  difficulty: 'Easy',
+  questionCount: 0,
+  mcqPercentage: 0,
+  questions: [],
+  createdAt: '2025-01-03T00:00:00Z',
+  updatedAt: '2025-01-03T00:00:00Z',
+}));
+
+// ── Mock appStore ─────────────────────────────────────────────────────
+const mockAppStore = vi.hoisted(() => ({
+  activeRoute: 'take' as const,
+  selectedTestId: null as number | null,
+  selectedAttemptId: null as number | null,
+  isLoading: false,
+  error: null as string | null,
+  navigateTo: vi.fn(),
+}));
+vi.mock('../lib/appStore.svelte', () => ({
+  appStore: mockAppStore,
+}));
+
 // ── Mock dbService ────────────────────────────────────────────────────
 vi.mock('../lib/dbService', () => ({
   getTest: vi.fn().mockResolvedValue(mockTest),
@@ -37,8 +74,8 @@ vi.mock('../lib/dbService', () => ({
   saveResponses: vi.fn().mockResolvedValue(undefined),
   getResponses: vi.fn().mockResolvedValue([]),
   getAttempt: vi.fn().mockResolvedValue({ id: 1, testId: 1 }),
-  getAttempts: vi.fn().mockResolvedValue([{ id: 1, testId: 1 }]),
-  getAllTests: vi.fn().mockResolvedValue([mockTest]),
+  getAttempts: vi.fn().mockResolvedValue([]),
+  getAllTests: vi.fn().mockResolvedValue([]),
   deleteTest: vi.fn().mockResolvedValue(undefined),
   getSettings: vi.fn().mockResolvedValue({ apiKey: 'sk-test', model: 'openai/gpt-4o' }),
   saveSetting: vi.fn().mockResolvedValue(undefined),
@@ -82,7 +119,10 @@ import {
   completeAttempt,
   saveResponses,
   createPartialAttempt,
+  getAllTests,
+  getAttempts,
 } from '../lib/dbService';
+import { appStore } from '../lib/appStore.svelte';
 
 describe('TakeTest', () => {
   beforeEach(() => {
@@ -92,6 +132,14 @@ describe('TakeTest', () => {
     vi.mocked(saveResponses).mockResolvedValue(undefined);
     vi.mocked(completeAttempt).mockResolvedValue(undefined);
     vi.mocked(createPartialAttempt).mockResolvedValue(99);
+    // Defaults: empty test list, no attempts
+    vi.mocked(getAllTests).mockResolvedValue([]);
+    vi.mocked(getAttempts).mockResolvedValue([]);
+    // Reset appStore mock
+    mockAppStore.activeRoute = 'take';
+    mockAppStore.selectedTestId = null;
+    mockAppStore.selectedAttemptId = null;
+    mockAppStore.navigateTo.mockReset();
   });
 
   // ── 1. Shows loading state initially ───────────────────────────────
@@ -325,6 +373,145 @@ describe('TakeTest', () => {
       fireEvent.click(screen.getByRole('button', { name: /submit test/i }));
       const cancelBtn = screen.getByRole('button', { name: /cancel/i }) as HTMLButtonElement;
       expect(cancelBtn.disabled).toBe(true);
+    });
+  });
+
+  // ── Landing (Bug 4) ─────────────────────────────────────────────────
+  describe('Landing', () => {
+    it('Landing renders when testId is null', async () => {
+      vi.mocked(getAllTests).mockResolvedValue([mockTest, mockTest2]);
+      render(TakeTest, { testId: null });
+      await waitFor(() => {
+        expect(screen.getByText('Choose a test')).toBeTruthy();
+      });
+    });
+
+    it('Landing fetches and displays all non-zero-question tests', async () => {
+      vi.mocked(getAllTests).mockResolvedValue([mockTest, mockTest2]);
+      render(TakeTest, { testId: null });
+      await waitFor(() => {
+        expect(screen.getByText('Science Quiz')).toBeTruthy();
+        expect(screen.getByText('History Quiz')).toBeTruthy();
+      });
+    });
+
+    it('Landing filters out 0-question tests', async () => {
+      vi.mocked(getAllTests).mockResolvedValue([mockTest, mockTest2, mockEmptyTest]);
+      render(TakeTest, { testId: null });
+      await waitFor(() => {
+        expect(screen.getByText('Science Quiz')).toBeTruthy();
+        expect(screen.getByText('History Quiz')).toBeTruthy();
+      });
+      expect(screen.queryByText('Empty Quiz')).toBeNull();
+    });
+
+    it("Landing shows 'No tests yet' empty state when 0 tests", async () => {
+      vi.mocked(getAllTests).mockResolvedValue([]);
+      render(TakeTest, { testId: null });
+      await waitFor(() => {
+        expect(screen.getByText('No tests yet')).toBeTruthy();
+      });
+      expect(screen.getByText('Generate a test to get started.')).toBeTruthy();
+    });
+
+    it("Status badge is 'new' for tests with 0 attempts", async () => {
+      vi.mocked(getAllTests).mockResolvedValue([mockTest]);
+      vi.mocked(getAttempts).mockResolvedValue([]);
+      render(TakeTest, { testId: null });
+      await waitFor(() => {
+        expect(screen.getByText('Science Quiz')).toBeTruthy();
+      });
+      const card = screen.getByTestId('landing-card');
+      expect(card.getAttribute('data-testid-status')).toBe('new');
+      expect(screen.getByText('Not started')).toBeTruthy();
+    });
+
+    it("Status badge is 'in-progress' for tests with partial attempts", async () => {
+      vi.mocked(getAllTests).mockResolvedValue([mockTest]);
+      vi.mocked(getAttempts).mockResolvedValue([
+        { id: 10, testId: 1 /* completedAt undefined → in-progress */ },
+      ]);
+      render(TakeTest, { testId: null });
+      await waitFor(() => {
+        expect(screen.getByText('Science Quiz')).toBeTruthy();
+      });
+      const card = screen.getByTestId('landing-card');
+      expect(card.getAttribute('data-testid-status')).toBe('in-progress');
+      expect(screen.getByText('In progress')).toBeTruthy();
+    });
+
+    it("Status badge is 'completed' for tests with completed attempts (no in-progress)", async () => {
+      vi.mocked(getAllTests).mockResolvedValue([mockTest]);
+      vi.mocked(getAttempts).mockResolvedValue([
+        { id: 10, testId: 1, completedAt: '2025-01-01T00:00:00Z' },
+      ]);
+      render(TakeTest, { testId: null });
+      await waitFor(() => {
+        expect(screen.getByText('Science Quiz')).toBeTruthy();
+      });
+      const card = screen.getByTestId('landing-card');
+      expect(card.getAttribute('data-testid-status')).toBe('completed');
+      expect(screen.getByText('Completed')).toBeTruthy();
+    });
+
+    it("Clicking 'Start Test' navigates to 'take' with selectedTestId", async () => {
+      vi.mocked(getAllTests).mockResolvedValue([mockTest]);
+      vi.mocked(getAttempts).mockResolvedValue([]);
+      render(TakeTest, { testId: null });
+      await waitFor(() => {
+        expect(screen.getByText('Science Quiz')).toBeTruthy();
+      });
+      await fireEvent.click(screen.getByTestId('start-test'));
+      expect(appStore.navigateTo).toHaveBeenCalledWith('take', { selectedTestId: 1 });
+    });
+
+    it("Clicking 'View all history' link navigates to 'history' route", async () => {
+      vi.mocked(getAllTests).mockResolvedValue([mockTest]);
+      render(TakeTest, { testId: null });
+      await waitFor(() => {
+        expect(screen.getByText('Choose a test')).toBeTruthy();
+      });
+      await fireEvent.click(screen.getByRole('button', { name: /view all history/i }));
+      expect(appStore.navigateTo).toHaveBeenCalledWith('history');
+    });
+  });
+
+  // ── Completed test re-entry (Bug 2) ─────────────────────────────────
+  describe('Completed test re-entry', () => {
+    it("Re-entering TakeTest for a completed test shows the 'Test already completed' panel, NOT the in-progress UI", async () => {
+      vi.mocked(getTest).mockResolvedValue(mockTest);
+      vi.mocked(getAttempts).mockResolvedValue([
+        { id: 42, testId: 1, completedAt: '2025-01-01T00:00:00Z' },
+      ]);
+      render(TakeTest, { testId: 1 });
+      await waitFor(() => {
+        expect(screen.getByText("You've already completed this test.")).toBeTruthy();
+      });
+      // The in-progress UI should NOT render
+      expect(screen.queryByText('Question 1 of 3')).toBeNull();
+      // The completed panel should render
+      expect(screen.getByText('Already completed')).toBeTruthy();
+    });
+
+    it("Clicking 'View Results' from the completed panel navigates to 'review' with selectedAttemptId", async () => {
+      vi.mocked(getTest).mockResolvedValue(mockTest);
+      vi.mocked(getAttempts).mockResolvedValue([
+        { id: 42, testId: 1, completedAt: '2025-01-01T00:00:00Z' },
+      ]);
+      render(TakeTest, { testId: 1 });
+      await waitFor(() => {
+        expect(screen.getByText("You've already completed this test.")).toBeTruthy();
+      });
+      // The completed panel renders a "View Results →" button.
+      // Use role+name (button is matched by visible text only; the leading test title is in a <p>).
+      const viewResultsBtn = screen.getAllByRole('button', { name: /view results/i })
+        .find((b) => b.textContent?.includes('→'));
+      expect(viewResultsBtn).toBeTruthy();
+      await fireEvent.click(viewResultsBtn!);
+      expect(appStore.navigateTo).toHaveBeenCalledWith('review', {
+        selectedTestId: 1,
+        selectedAttemptId: 42,
+      });
     });
   });
 });

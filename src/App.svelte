@@ -128,33 +128,11 @@
               <GenerateTest />
 
             {:else if appStore.activeRoute === 'take'}
-              {#if appStore.selectedTestId !== null}
-                <TakeTest
-                  testId={appStore.selectedTestId}
-                  onReview={handleReviewAttempt}
-                  onExit={handleExitTake}
-                />
-              {:else}
-                <div class="surface-card space-y-4 p-12 text-center">
-                  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-secondary/60">
-                    <Search size={24} class="text-muted-foreground" />
-                  </div>
-                  <div class="space-y-2">
-                    <h2 class="font-display text-2xl font-bold text-foreground">No test selected</h2>
-                    <p class="mx-auto max-w-sm text-muted-foreground">
-                      Browse your Test History to pick a test, or generate a new one first.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onclick={() => appStore.navigateTo('history')}
-                    class="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 font-semibold text-primary-foreground transition hover:brightness-110"
-                  >
-                    <History size={16} />
-                    Go to History
-                  </button>
-                </div>
-              {/if}
+              <TakeTest
+                testId={appStore.selectedTestId}
+                onReview={handleReviewAttempt}
+                onExit={handleExitTake}
+              />
 
             {:else if appStore.activeRoute === 'history'}
               <TestHistory onNavigate={(route, params) => appStore.navigateTo(route as RouteId, params)} />
