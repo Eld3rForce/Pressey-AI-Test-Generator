@@ -29,6 +29,7 @@ pdf-extract = "0.7"
 tauri-plugin-fs = "2"
 tempfile = "3"
 ureq = { version = "3", default-features = false, features = ["rustls", "gzip"] }
+url = "2"
 
 [dev-dependencies]
 httpmock = "0.7"
