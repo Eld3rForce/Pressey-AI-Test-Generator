@@ -28,6 +28,9 @@ const defaults: Settings = {
   enableResearch: false,
   researchMaxResults: 5,
   researchMaxSnippetChars: 800,
+  enableUrlFetch: false,
+  urlFetchMaxResults: 5,
+  urlFetchMaxBytesPerUrl: 2_000_000,
 };
 
 class SettingsStore {

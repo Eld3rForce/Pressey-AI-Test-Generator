@@ -97,6 +97,9 @@ export interface Settings {
   enableResearch?: boolean;
   researchMaxResults?: number;
   researchMaxSnippetChars?: number;
+  enableUrlFetch?: boolean;
+  urlFetchMaxResults?: number;
+  urlFetchMaxBytesPerUrl?: number;
 }
 
 // --- OpenRouter API Types ---
