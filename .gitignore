@@ -30,3 +30,6 @@ dist-ssr
 # Tauri build artifacts (generated locally)
 src-tauri/target/
 src-tauri/gen/
+
+# Local convenience folder for quick access to built executables
+bin/
