@@ -47,6 +47,7 @@ vi.mock('../lib/dbService', () => ({
   saveExplanation: vi.fn().mockResolvedValue(undefined),
   saveExplanations: vi.fn().mockResolvedValue(undefined),
   getExplanations: vi.fn().mockResolvedValue([]),
+  createPartialAttempt: vi.fn().mockResolvedValue(99),
 }));
 
 // ── Mock marking module ────────────────────────────────────────────────
@@ -75,7 +76,13 @@ vi.mock('../lib/marking', () => ({
 }));
 
 import TakeTest from './TakeTest.svelte';
-import { getTest, createAttempt, completeAttempt, saveResponses } from '../lib/dbService';
+import {
+  getTest,
+  createAttempt,
+  completeAttempt,
+  saveResponses,
+  createPartialAttempt,
+} from '../lib/dbService';
 
 describe('TakeTest', () => {
   beforeEach(() => {
@@ -84,6 +91,7 @@ describe('TakeTest', () => {
     vi.mocked(createAttempt).mockResolvedValue(1);
     vi.mocked(saveResponses).mockResolvedValue(undefined);
     vi.mocked(completeAttempt).mockResolvedValue(undefined);
+    vi.mocked(createPartialAttempt).mockResolvedValue(99);
   });
 
   // ── 1. Shows loading state initially ───────────────────────────────
@@ -214,6 +222,109 @@ describe('TakeTest', () => {
     render(TakeTest, { testId: 999 });
     await waitFor(() => {
       expect(screen.getByText('Failed to load test')).toBeTruthy();
+    });
+  });
+
+  // ── Cancel flow ──────────────────────────────────────────────────────
+  describe('Cancel flow', () => {
+    // 1. Cancel button is visible in header during in-progress test
+    it('Cancel button is visible in header during in-progress test', async () => {
+      render(TakeTest, { testId: 1 });
+      await waitFor(() => {
+        expect(screen.getByText('Science Quiz')).toBeTruthy();
+      });
+      const cancelBtn = screen.getByRole('button', { name: /cancel/i });
+      expect(cancelBtn).toBeTruthy();
+    });
+
+    // 2. Clicking Cancel opens the 3-option modal
+    it('Clicking Cancel opens the 3-option modal', async () => {
+      render(TakeTest, { testId: 1 });
+      await waitFor(() => {
+        expect(screen.getByText('Science Quiz')).toBeTruthy();
+      });
+      await fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+      await waitFor(() => {
+        expect(screen.getByText('Cancel test?')).toBeTruthy();
+      });
+      expect(screen.getByRole('button', { name: 'Save & exit' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Discard & exit' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Keep working' })).toBeTruthy();
+    });
+
+    // 3. Save & exit calls createPartialAttempt and onExit
+    it('Save & exit calls createPartialAttempt and onExit', async () => {
+      const onExit = vi.fn();
+      render(TakeTest, { testId: 1, onExit });
+      await waitFor(() => {
+        expect(screen.getByText('Science Quiz')).toBeTruthy();
+      });
+      await fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+      await waitFor(() => {
+        expect(screen.getByText('Cancel test?')).toBeTruthy();
+      });
+      await fireEvent.click(screen.getByRole('button', { name: 'Save & exit' }));
+      await waitFor(() => {
+        expect(createPartialAttempt).toHaveBeenCalledWith(1, 0);
+        expect(onExit).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    // 4. Discard & exit calls onExit without createPartialAttempt
+    it('Discard & exit calls onExit without createPartialAttempt', async () => {
+      const onExit = vi.fn();
+      render(TakeTest, { testId: 1, onExit });
+      await waitFor(() => {
+        expect(screen.getByText('Science Quiz')).toBeTruthy();
+      });
+      await fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+      await waitFor(() => {
+        expect(screen.getByText('Cancel test?')).toBeTruthy();
+      });
+      await fireEvent.click(screen.getByRole('button', { name: 'Discard & exit' }));
+      await waitFor(() => {
+        expect(onExit).toHaveBeenCalledTimes(1);
+      });
+      expect(createPartialAttempt).not.toHaveBeenCalled();
+    });
+
+    // 5. Keep working closes the modal without state change
+    it('Keep working closes the modal without state change', async () => {
+      const onExit = vi.fn();
+      render(TakeTest, { testId: 1, onExit });
+      await waitFor(() => {
+        expect(screen.getByText('Science Quiz')).toBeTruthy();
+      });
+      await fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+      await waitFor(() => {
+        expect(screen.getByText('Cancel test?')).toBeTruthy();
+      });
+      await fireEvent.click(screen.getByRole('button', { name: 'Keep working' }));
+      await waitFor(() => {
+        expect(screen.queryByText('Cancel test?')).toBeNull();
+      });
+      expect(createPartialAttempt).not.toHaveBeenCalled();
+      expect(onExit).not.toHaveBeenCalled();
+    });
+
+    // 6. Cancel button is disabled when submitting === true
+    it('Cancel button is disabled when submitting is true', async () => {
+      const onExit = vi.fn();
+      render(TakeTest, { testId: 1, onExit });
+      await waitFor(() => {
+        expect(screen.getByText('Science Quiz')).toBeTruthy();
+      });
+      await fireEvent.click(screen.getByLabelText('Go to question 3'));
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Finish Test' })).toBeTruthy();
+      });
+      await fireEvent.click(screen.getByRole('button', { name: 'Finish Test' }));
+      await waitFor(() => {
+        expect(screen.getByText('Submit test?')).toBeTruthy();
+      });
+      fireEvent.click(screen.getByRole('button', { name: /submit test/i }));
+      const cancelBtn = screen.getByRole('button', { name: /cancel/i }) as HTMLButtonElement;
+      expect(cancelBtn.disabled).toBe(true);
     });
   });
 });

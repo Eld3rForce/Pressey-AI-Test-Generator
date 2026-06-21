@@ -4,16 +4,21 @@
     createAttempt,
     completeAttempt,
     saveResponses,
+    createPartialAttempt,
+    getAllTests,
+    getAttempts,
   } from '../lib/dbService';
   import { mapApiError } from '../lib/errorUtils';
-  import type { Test, Question, Response } from '../lib/types';
+  import type { Test, Question, Response, Attempt } from '../lib/types';
   import { generateMarking } from '../lib/marking';
   import { settingsStore } from '../lib/settingsStore.svelte';
+  import { appStore } from '../lib/appStore.svelte';
+  import { Play, CheckCircle2, Circle, History } from 'lucide-svelte';
 
   // ── Props ─────────────────────────────────────────────────────────────
 
   interface Props {
-    testId: number;
+    testId: number | null;
     /** Optional per-question time limit in seconds. Enables countdown. */
     timerEnabled?: boolean;
     /** Total test duration in seconds (used when timerEnabled is true). */
@@ -45,6 +50,7 @@
   let answers = $state(new Map<number, string>());
 
   let showConfirm = $state(false);
+  let showCancelConfirm = $state(false);
   let submitted = $state(false);
   let submitting = $state(false);
   let submitError = $state<string | null>(null);
@@ -56,6 +62,15 @@
   // Initial value is irrelevant; the timer effect re-syncs from the prop.
   let timeLeft = $state(0);
   let intervalId: ReturnType<typeof setInterval> | null = null;
+
+  // ── Landing state (when testId === null) ────────────────────────────
+  let allTests = $state<Test[]>([]);
+  let landingLoading = $state(true);
+  let attemptsByTest = $state(new Map<number, Attempt[]>());
+
+  // ── Completed-panel state (Bug 2) ───────────────────────────────────
+  let showCompletedPanel = $state(false);
+  let completedAttempts = $state<Attempt[]>([]);
 
   // ── Derived ───────────────────────────────────────────────────────────
 
@@ -79,9 +94,21 @@
   // ── Effects ───────────────────────────────────────────────────────────
 
   $effect(() => {
-    // Reload whenever the testId prop changes.
-    void testId;
-    loadTest(testId);
+    // Dispatch to landing or specific test based on testId prop.
+    if (testId === null) {
+      // Reset all test-specific state when entering landing.
+      test = null;
+      loadError = null;
+      submitted = false;
+      showCompletedPanel = false;
+      completedAttempts = [];
+      void loadLanding();
+    } else {
+      // Reset landing state when entering a specific test.
+      allTests = [];
+      attemptsByTest = new Map();
+      void loadTest(testId);
+    }
   });
 
   $effect(() => {
@@ -123,6 +150,9 @@
     total = 0;
     currentIndex = 0;
     answers = new Map();
+    // Reset completed-panel state (Bug 2)
+    showCompletedPanel = false;
+    completedAttempts = [];
     try {
       const t = await getTest(id);
       if (!t) {
@@ -132,11 +162,51 @@
       }
       test = t;
       total = t.questions.length;
+
+      // ── Bug 2 fix: check for completed attempts ──────────────────
+      const attempts = await getAttempts(id);
+      const hasInProgress = attempts.some((a) => a.completedAt === undefined);
+      const hasCompleted = attempts.some((a) => a.completedAt !== undefined);
+      if (hasCompleted && !hasInProgress) {
+        showCompletedPanel = true;
+        completedAttempts = attempts.filter((a) => a.completedAt !== undefined);
+      }
     } catch (e) {
       loadError = mapApiError(e);
       test = null;
     } finally {
       loading = false;
+    }
+  }
+
+  async function loadLanding() {
+    landingLoading = true;
+    try {
+      const tests = await getAllTests();
+      allTests = tests;
+
+      // N+1: fetch attempts per test (matches TestHistory.svelte:70-79 pattern)
+      const map = new Map<number, Attempt[]>();
+      const fetches = tests
+        .filter((t): t is Test & { id: number } => t.id != null)
+        .map(async (t) => {
+          try {
+            const attempts = await getAttempts(t.id);
+            return { id: t.id, attempts };
+          } catch {
+            return { id: t.id, attempts: [] as Attempt[] };
+          }
+        });
+      const results = await Promise.all(fetches);
+      for (const r of results) {
+        map.set(r.id, r.attempts);
+      }
+      attemptsByTest = map;
+    } catch (e) {
+      console.error('Failed to load tests for landing:', e);
+      allTests = [];
+    } finally {
+      landingLoading = false;
     }
   }
 
@@ -271,6 +341,32 @@
     }
   }
 
+  function handleCancelClick() {
+    if (submitting) return;
+    showCancelConfirm = true;
+  }
+
+  async function handleCancelSave() {
+    if (!test || test.id == null) return;
+    try {
+      await createPartialAttempt(test.id, currentIndex);
+      showCancelConfirm = false;
+      onExit?.();
+    } catch (e) {
+      console.error('Cancel save failed:', e);
+      // Keep modal open; user can retry
+    }
+  }
+
+  function handleCancelDiscard() {
+    showCancelConfirm = false;
+    onExit?.();
+  }
+
+  function handleCancelKeepWorking() {
+    showCancelConfirm = false;
+  }
+
   function handleModalKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       showConfirm = false;
@@ -280,7 +376,134 @@
 
 <main class="studio-bg min-h-screen">
   <div class="page">
-    {#if loading}
+    {#if testId === null}
+      <!-- ── Landing page (Bug 4) ────────────────────────────────── -->
+      <header class="topbar">
+        <div class="topbar-text">
+          <p class="micro-label">Take Test</p>
+          <h1 class="test-title">Choose a test</h1>
+        </div>
+        <button
+          type="button"
+          class="btn btn-ghost"
+          onclick={() => appStore.navigateTo('history')}
+        >
+          <History size={14} />
+          View all history →
+        </button>
+      </header>
+
+      {#if landingLoading}
+        <div class="state-block surface-card">
+          <p class="micro-label">Loading</p>
+          <p class="state-title">Loading tests…</p>
+        </div>
+      {:else if allTests.filter((t) => t.questionCount > 0).length === 0}
+        <div class="state-block surface-card">
+          <p class="micro-label">Empty</p>
+          <p class="state-title">No tests yet</p>
+          <p class="state-sub">Generate a test to get started.</p>
+        </div>
+      {:else}
+        <div class="test-list">
+          {#each allTests.filter((t) => t.questionCount > 0) as t (t.id)}
+            {@const attempts = attemptsByTest.get(t.id ?? -1) ?? []}
+            {@const hasInProgress = attempts.some((a) => a.completedAt === undefined)}
+            {@const hasCompleted = attempts.some((a) => a.completedAt !== undefined)}
+            {@const status = hasInProgress ? 'in-progress' : hasCompleted ? 'completed' : 'new'}
+            {@const latestCompleted = attempts.find((a) => a.completedAt !== undefined)}
+            <article
+              class="surface-card landing-card"
+              data-testid="landing-card"
+              data-testid-status={status}
+            >
+              <div class="landing-card-body">
+                <h3 class="landing-card-title">{t.title}</h3>
+                <div class="landing-meta-row">
+                  {#if t.topic}
+                    <span class="command-strip">{t.topic}</span>
+                  {/if}
+                  <span class="command-strip">{t.difficulty || 'Unknown'}</span>
+                  <span class="command-strip">
+                    {t.questionCount} {t.questionCount === 1 ? 'question' : 'questions'}
+                  </span>
+                </div>
+
+                <div class="landing-status">
+                  {#if status === 'new'}
+                    <span class="status-badge status-new" data-testid="status-badge">
+                      <Circle size={11} />
+                      Not started
+                    </span>
+                  {:else if status === 'in-progress'}
+                    <span class="status-badge status-in-progress" data-testid="status-badge">
+                      <Play size={11} />
+                      In progress
+                    </span>
+                  {:else}
+                    <span class="status-badge status-completed" data-testid="status-badge">
+                      <CheckCircle2 size={11} />
+                      Completed
+                    </span>
+                  {/if}
+                </div>
+              </div>
+
+              <div class="landing-card-actions">
+                {#if status === 'new'}
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    data-testid="start-test"
+                    onclick={() =>
+                      t.id != null && appStore.navigateTo('take', { selectedTestId: t.id })}
+                  >
+                    <Play size={14} />
+                    Start Test
+                  </button>
+                {:else if status === 'in-progress'}
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    data-testid="resume-test"
+                    onclick={() =>
+                      t.id != null && appStore.navigateTo('take', { selectedTestId: t.id })}
+                  >
+                    <Play size={14} />
+                    Resume
+                  </button>
+                {:else}
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    data-testid="view-results"
+                    onclick={() => {
+                      if (t.id != null && latestCompleted?.id != null) {
+                        appStore.navigateTo('review', {
+                          selectedTestId: t.id,
+                          selectedAttemptId: latestCompleted.id,
+                        });
+                      }
+                    }}
+                  >
+                    View Results →
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-secondary"
+                    data-testid="retake-test"
+                    onclick={() =>
+                      t.id != null && appStore.navigateTo('take', { selectedTestId: t.id })}
+                  >
+                    Retake
+                  </button>
+                {/if}
+              </div>
+            </article>
+          {/each}
+        </div>
+      {/if}
+    {:else if loading}
       <div class="state-block surface-card">
         <p class="micro-label">Loading</p>
         <p class="state-title">Preparing your test…</p>
@@ -294,6 +517,41 @@
           <button class="btn btn-ghost mt-6" onclick={onExit}>Go back</button>
         {/if}
       </div>
+    {:else if showCompletedPanel && test}
+      <!-- ── Test already completed panel (Bug 2) ───────────────── -->
+      <section class="state-block surface-card">
+        <p class="micro-label text-destructive">Already completed</p>
+        <p class="state-title">{test.title}</p>
+        <p class="state-sub">You've already completed this test.</p>
+        <div class="results-actions">
+          {#if onExit}
+            <button class="btn btn-ghost" onclick={onExit}>Back to tests</button>
+          {/if}
+          <button
+            type="button"
+            class="btn btn-primary"
+            onclick={() => {
+              const latest = completedAttempts[0];
+              if (latest?.id != null && test.id != null) {
+                appStore.navigateTo('review', {
+                  selectedTestId: test.id,
+                  selectedAttemptId: latest.id,
+                });
+              }
+            }}
+          >
+            View Results →
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick={() =>
+              test.id != null && appStore.navigateTo('take', { selectedTestId: test.id })}
+          >
+            Retake
+          </button>
+        </div>
+      </section>
     {:else if !test || test.questions.length === 0}
       <div class="state-block surface-card">
         <p class="micro-label">Empty</p>
@@ -330,6 +588,15 @@
             </span>
           </div>
         {/if}
+
+        <button
+          class="btn btn-ghost cancel-button"
+          onclick={handleCancelClick}
+          disabled={submitting}
+          aria-label="Cancel test"
+        >
+          ✕ Cancel
+        </button>
       </header>
 
       <!-- ── Progress bar ────────────────────────────────────────── -->
@@ -521,6 +788,37 @@
           disabled={submitting}
         >
           {submitting ? 'Submitting…' : 'Submit test'}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- ── Cancel confirmation modal (3-option) ────────────────────── -->
+{#if showCancelConfirm}
+  <div
+    class="modal-backdrop"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="cancel-title"
+    tabindex="-1"
+    onclick={(e) => e.target === e.currentTarget && (showCancelConfirm = false)}
+    onkeydown={(e) => e.key === 'Escape' && (showCancelConfirm = false)}
+  >
+    <div class="surface-card modal">
+      <h3 class="modal-title" id="cancel-title">Cancel test?</h3>
+      <p class="modal-text">
+        Your progress will be lost unless you save it. You can resume a saved test from the Take Test page.
+      </p>
+      <div class="modal-actions modal-actions-3">
+        <button class="btn btn-ghost" onclick={handleCancelKeepWorking}>
+          Keep working
+        </button>
+        <button class="btn btn-destructive" onclick={handleCancelDiscard}>
+          Discard &amp; exit
+        </button>
+        <button class="btn btn-primary" onclick={handleCancelSave}>
+          Save &amp; exit
         </button>
       </div>
     </div>
@@ -968,6 +1266,23 @@
     gap: 0.75rem;
     justify-content: flex-end;
   }
+  .modal-actions-3 {
+    flex-wrap: wrap;
+  }
+  .cancel-button {
+    align-self: flex-start;
+    flex-shrink: 0;
+  }
+  .btn-destructive {
+    background-color: var(--color-destructive);
+    color: var(--color-destructive-foreground);
+    border-color: var(--color-destructive);
+    font-weight: 500;
+  }
+  .btn-destructive:hover:not(:disabled) {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+  }
 
   /* ── Results panel ────────────────────────────────────────── */
   .results-shell {
@@ -1079,6 +1394,83 @@
     gap: 0.75rem;
   }
 
+  /* ── Landing page ────────────────────────────────────────── */
+  .test-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .landing-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    transition: border-color 180ms;
+  }
+  .landing-card:hover {
+    border-color: oklch(0.72 0.1 195 / 0.6);
+  }
+  .landing-card-body {
+    min-width: 0;
+  }
+  .landing-card-title {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--color-foreground);
+    line-height: 1.3;
+    margin: 0 0 0.75rem;
+    word-break: break-word;
+  }
+  .landing-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .landing-status {
+    display: flex;
+    align-items: center;
+  }
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+    border: 1px solid var(--color-border);
+  }
+  .status-new {
+    background-color: oklch(0.18 0.02 280 / 60%);
+    color: var(--color-muted-foreground);
+  }
+  .status-in-progress {
+    background-color: oklch(0.72 0.1 195 / 0.15);
+    color: oklch(0.78 0.12 195);
+    border-color: oklch(0.72 0.1 195 / 0.4);
+  }
+  .status-completed {
+    background-color: oklch(0.7 0.15 145 / 0.15);
+    color: oklch(0.78 0.15 145);
+    border-color: oklch(0.7 0.15 145 / 0.4);
+  }
+  .landing-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .landing-card-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
   /* ── Responsive ───────────────────────────────────────────── */
   @media (max-width: 640px) {
     .page {
@@ -1101,6 +1493,9 @@
     }
     .timer {
       align-self: flex-start;
+    }
+    .landing-card {
+      padding: 1.25rem;
     }
   }
 </style>
