@@ -5,7 +5,7 @@ exportable test in seconds. Built with **Tauri v2** (Rust backend) and a
 Svelte 5 + Tailwind v4 frontend, Pressey is local-first, multi-provider,
 and ships installers for Windows, macOS, and Linux.
 
-> **Latest release: v0.2.6** — see [What's New](#whats-new-in-v026) below.
+> **Latest release: v0.3.0** — see [What's New](#whats-new-in-v026) below.
 
 ---
 
