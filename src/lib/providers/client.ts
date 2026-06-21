@@ -39,9 +39,9 @@ const REQUEST_TEMPERATURE = 0.7;
 function buildSystemPrompt(config: TestConfig): string {
   const mcqCount = Math.round((config.mcqPercentage / 100) * config.questionCount);
   const textCount = config.questionCount - mcqCount;
-  const topicStr = config.topic || 'general knowledge';
+  const topicClause = config.topic ? ` on ${config.topic}` : '';
 
-  return `You are an expert tutor creating a ${config.questionCount}-question test on ${topicStr} at ${config.difficulty} difficulty. ${mcqCount} questions (${config.mcqPercentage}%) must be multiple choice with exactly 4 options each, and ${textCount} must be text response questions. Return valid JSON conforming to this structure: { "title": string, "topic": string, "questions": [{ "type": "mcq" | "text", "text": string, "options": [string, string, string, string] (for mcq only), "correctAnswer": string, "explanation": string }] }`;
+  return `You are an expert tutor creating a ${config.questionCount}-question test${topicClause} at ${config.difficulty} difficulty. ${mcqCount} questions (${config.mcqPercentage}%) must be multiple choice with exactly 4 options each, and ${textCount} must be text response questions. Return valid JSON conforming to this structure: { "title": string, "topic": string, "questions": [{ "type": "mcq" | "text", "text": string, "options": [string, string, string, string] (for mcq only), "correctAnswer": string, "explanation": string }] }`;
 }
 
 function buildRequestBody(

@@ -15,7 +15,7 @@ import { searchWeb, searchDocument, buildResearchContext } from './research';
 function buildFormattingRequirements(config: TestConfig): string {
   const mcqCount = Math.round((config.mcqPercentage / 100) * config.questionCount);
   const textCount = config.questionCount - mcqCount;
-  const topic = config.topic || 'general knowledge';
+  const topic = config.topic || '<derived from user prompt>';
 
   return `REQUIREMENTS:
 - Exactly ${config.questionCount} total questions

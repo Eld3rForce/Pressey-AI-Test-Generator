@@ -470,7 +470,7 @@ describe('generateFromPrompt', () => {
 
   // --- Default topic when not provided ---
 
-  it('should use "general knowledge" when topic is not provided', async () => {
+  it('should use "<derived from user prompt>" placeholder when topic is not provided', async () => {
     vi.mocked(generateTest).mockResolvedValueOnce(createValidTest());
 
     const configWithoutTopic: TestConfig = {
@@ -484,8 +484,10 @@ describe('generateFromPrompt', () => {
     const [prompt] = vi.mocked(generateTest).mock.calls[0];
     // Prompt starts with user prompt (not template topic claim)
     expect(prompt.startsWith('Test')).toBe(true);
-    // "general knowledge" still appears as the fallback topic in JSON schema
-    expect(prompt).toContain('"general knowledge"');
+    // "general knowledge" must NOT be hardcoded — JSON schema example now shows
+    // the explicit "<derived from user prompt>" placeholder instead
+    expect(prompt).not.toContain('"general knowledge"');
+    expect(prompt).toContain('"topic": "<derived from user prompt>"');
   });
 
   // --- User prompt ordering ---
@@ -508,6 +510,29 @@ describe('generateFromPrompt', () => {
     const [prompt] = vi.mocked(generateTest).mock.calls[0];
     expect(prompt.startsWith('Generate a test on the topic of "JavaScript"')).toBe(true);
     expect(prompt).toContain('Exactly 5 total questions');
+  });
+
+  // --- Bug 1 regression: honor user prompt when topic is empty ---
+
+  it('places user prompt first and does not hardcode topic when topic is empty', async () => {
+    vi.mocked(generateTest).mockResolvedValueOnce(createValidTest());
+
+    const config = {
+      questionCount: 5,
+      mcqPercentage: 60,
+      difficulty: 'Medium',
+    };
+
+    await generateFromPrompt('Photosynthesis basics', config as TestConfig, TEST_API_KEY);
+
+    const [prompt] = vi.mocked(generateTest).mock.calls[0];
+    // User prompt must be the primary instruction
+    expect(prompt).toMatch(/^Photosynthesis basics/);
+    // "general knowledge" must NOT be hardcoded anywhere in the prompt
+    expect(prompt).not.toContain('"general knowledge"');
+    // The fallback "Generate a test on the topic of..." branch is not used
+    // when a non-empty userPrompt is provided
+    expect(prompt).not.toContain('Generate a test on the topic of');
   });
 });
 

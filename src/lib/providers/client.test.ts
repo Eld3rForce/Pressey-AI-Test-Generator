@@ -484,6 +484,37 @@ describe('generateWithProvider', () => {
     });
   });
 
+  // -------- Bug 1 regression: buildSystemPrompt must honor user prompt when topic is empty --------
+
+  describe('buildSystemPrompt', () => {
+    it("system prompt does not hardcode 'general knowledge' when topic is empty", async () => {
+      const mockFetch = vi.fn().mockResolvedValueOnce(okResponse());
+      vi.stubGlobal('fetch', mockFetch);
+
+      const configWithoutTopic: TestConfig = {
+        questionCount: 5,
+        mcqPercentage: 60,
+        difficulty: 'Medium',
+      };
+
+      await generateWithProvider(
+        'openai',
+        'Photosynthesis basics',
+        configWithoutTopic,
+        makeSettings(),
+      );
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      const systemMessage = body.messages[0];
+      const userMessage = body.messages[1];
+
+      // System message must NOT hardcode "general knowledge" when topic is empty
+      expect(systemMessage.content).not.toContain('general knowledge');
+      // User prompt must be the primary instruction in the user message
+      expect(userMessage.content).toMatch(/^Photosynthesis basics/);
+    });
+  });
+
   // -------- Error handling: 401 --------
 
   describe('401 unauthorized', () => {
