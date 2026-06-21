@@ -350,17 +350,16 @@
   </header>
 
   <!-- ── Form: Prompt + Config ───────────────────────────────── -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
     <!-- Prompt -->
-    <section class="md:col-span-2 surface-card p-6 space-y-4">
-      <div>
+    <section class="md:col-span-2 surface-card p-6 flex flex-col gap-4">
+      <div class="flex flex-col flex-1 min-h-0">
         <label class="micro-label mb-2 block" for="prompt-textarea">Prompt</label>
         <textarea
           id="prompt-textarea"
           bind:value={prompt}
-          rows="8"
           placeholder="Describe the test topic or paste content..."
-          class="w-full bg-background/30 rounded-lg border border-border px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-accent outline-none transition resize-y min-h-32"
+          class="w-full bg-background/30 rounded-lg border border-border px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-accent outline-none transition resize-none flex-1 min-h-48"
         ></textarea>
       </div>
       <div>
