@@ -23,6 +23,9 @@ vi.mock('../lib/settingsStore.svelte', () => {
     enableResearch: false,
     researchMaxResults: 5,
     researchMaxSnippetChars: 800,
+    enableUrlFetch: false,
+    urlFetchMaxResults: 5,
+    urlFetchMaxBytesPerUrl: 2000000,
   };
   return {
     settingsStore: {
@@ -178,6 +181,71 @@ describe('SettingsForm', () => {
           researchMaxSnippetChars: 1200,
         }),
       );
+    });
+  });
+
+  describe('URL Fetch section', () => {
+    it('with default settings, checkbox is unchecked, max results = 5, max bytes = 2000000', async () => {
+      const s = await getMockSettings();
+      s.enableUrlFetch = false;
+      s.urlFetchMaxResults = 5;
+      s.urlFetchMaxBytesPerUrl = 2000000;
+      render(SettingsForm);
+      // Flush microtasks so the $effect .then() from loadSettings runs
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const checkbox = screen.getByTestId('enable-url-fetch-checkbox') as HTMLInputElement;
+      expect(checkbox).toBeTruthy();
+      expect(checkbox.type).toBe('checkbox');
+      expect(checkbox.checked).toBe(false);
+      const maxResults = screen.getByTestId('url-fetch-max-results-input') as HTMLInputElement;
+      expect(maxResults.value).toBe('5');
+      const maxBytes = screen.getByTestId('url-fetch-max-bytes-per-url-input') as HTMLInputElement;
+      expect(maxBytes.value).toBe('2000000');
+    });
+
+    it('clicking the enable URL fetch checkbox updates the setting', async () => {
+      const s = await getMockSettings();
+      s.enableUrlFetch = false;
+      render(SettingsForm);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const checkbox = screen.getByTestId('enable-url-fetch-checkbox') as HTMLInputElement;
+      expect(checkbox.checked).toBe(false);
+      await fireEvent.click(checkbox);
+      expect(checkbox.checked).toBe(true);
+    });
+
+    it('changing max URLs to fetch to 10 updates the setting', async () => {
+      const s = await getMockSettings();
+      s.urlFetchMaxResults = 5;
+      render(SettingsForm);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const input = screen.getByTestId('url-fetch-max-results-input') as HTMLInputElement;
+      expect(input.value).toBe('5');
+      await fireEvent.input(input, { target: { value: '10' } });
+      expect(input.value).toBe('10');
+    });
+
+    it('changing max bytes per URL to 5000000 updates the setting', async () => {
+      const s = await getMockSettings();
+      s.urlFetchMaxBytesPerUrl = 2000000;
+      render(SettingsForm);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const input = screen.getByTestId('url-fetch-max-bytes-per-url-input') as HTMLInputElement;
+      expect(input.value).toBe('2000000');
+      await fireEvent.input(input, { target: { value: '5000000' } });
+      expect(input.value).toBe('5000000');
+    });
+
+    it('renders a section heading "URL Fetch"', () => {
+      render(SettingsForm);
+      expect(screen.getByText('URL Fetch')).toBeTruthy();
+    });
+
+    it('renders a description mentioning URLs in prompt will be fetched', () => {
+      render(SettingsForm);
+      expect(
+        screen.getByText(/URLs in your prompt will be fetched/)
+      ).toBeTruthy();
     });
   });
 

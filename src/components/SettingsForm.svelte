@@ -19,6 +19,10 @@
   let enableResearch = $state(false);
   let researchMaxResults = $state(5);
   let researchMaxSnippetChars = $state(800);
+  // URL Fetch settings
+  let enableUrlFetch = $state(false);
+  let urlFetchMaxResults = $state(5);
+  let urlFetchMaxBytesPerUrl = $state(2000000);
   // Provider-selection state
   let provider = $state<ProviderType>('openrouter');
   let openaiKey = $state('');
@@ -121,6 +125,9 @@
       enableResearch = settingsStore.settings.enableResearch ?? false;
       researchMaxResults = settingsStore.settings.researchMaxResults ?? 5;
       researchMaxSnippetChars = settingsStore.settings.researchMaxSnippetChars ?? 800;
+      enableUrlFetch = settingsStore.settings.enableUrlFetch ?? false;
+      urlFetchMaxResults = settingsStore.settings.urlFetchMaxResults ?? 5;
+      urlFetchMaxBytesPerUrl = settingsStore.settings.urlFetchMaxBytesPerUrl ?? 2000000;
     });
   });
 
@@ -164,6 +171,9 @@
       enableResearch,
       researchMaxResults,
       researchMaxSnippetChars,
+      enableUrlFetch,
+      urlFetchMaxResults,
+      urlFetchMaxBytesPerUrl,
     };
     const validation = validateProvider(provider, settingsToSave);
     if (!validation.valid) {
@@ -382,6 +392,54 @@
       />
     </div>
   {/if}
+
+  <!-- ── URL Fetch Settings ───────────────────────────────────── -->
+  <div class="border-t border-border pt-4">
+    <h3 class="text-lg font-medium mb-2 text-foreground">URL Fetch</h3>
+    <p class="text-sm text-muted-foreground mb-4">
+      When enabled, URLs in your prompt will be fetched and their content added to the LLM context.
+    </p>
+
+    <label class="flex items-center gap-2 text-foreground cursor-pointer mb-3">
+      <input
+        type="checkbox"
+        bind:checked={enableUrlFetch}
+        data-testid="enable-url-fetch-checkbox"
+        class="accent-primary"
+      />
+      Enable URL fetching
+    </label>
+
+    <div>
+      <label class="micro-label mb-2 block" for="url-fetch-max-results-input">
+        Max URLs to fetch (1–10)
+      </label>
+      <input
+        id="url-fetch-max-results-input"
+        type="number"
+        bind:value={urlFetchMaxResults}
+        min="1"
+        max="10"
+        data-testid="url-fetch-max-results-input"
+        class="w-full bg-background/30 rounded-lg border border-border px-4 py-2 text-foreground focus:ring-2 focus:ring-accent outline-none"
+      />
+    </div>
+
+    <div>
+      <label class="micro-label mb-2 block" for="url-fetch-max-bytes-per-url-input">
+        Max bytes per URL (1,000–10,000,000)
+      </label>
+      <input
+        id="url-fetch-max-bytes-per-url-input"
+        type="number"
+        bind:value={urlFetchMaxBytesPerUrl}
+        min="1000"
+        max="10000000"
+        data-testid="url-fetch-max-bytes-per-url-input"
+        class="w-full bg-background/30 rounded-lg border border-border px-4 py-2 text-foreground focus:ring-2 focus:ring-accent outline-none"
+      />
+    </div>
+  </div>
 
   <div class="flex gap-3 pt-4 border-t border-border">
     <button
