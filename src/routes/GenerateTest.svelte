@@ -350,7 +350,7 @@
   </header>
 
   <!-- ── Form: Prompt + Config ───────────────────────────────── -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
     <!-- Prompt -->
     <section class="md:col-span-2 surface-card p-6 space-y-4">
       <div>
