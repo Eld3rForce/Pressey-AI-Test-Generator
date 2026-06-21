@@ -362,6 +362,7 @@
           class="w-full bg-background/30 rounded-lg border border-border px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-accent outline-none transition resize-none flex-1 min-h-48"
         ></textarea>
       </div>
+      <p data-testid="url-detection-badge"></p>
       <div>
         <label class="micro-label mb-2 block" for="topic-input">Topic (optional)</label>
         <input

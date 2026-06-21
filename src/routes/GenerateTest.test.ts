@@ -119,10 +119,18 @@ vi.mock('../lib/personalities', () => ({
   buildPersonalityPrefix: vi.fn().mockReturnValue('Be helpful.'),
 }));
 
+// ── Mock urlExtractor ────────────────────────────────────────────────
+vi.mock('../lib/urlExtractor', () => ({
+  extractUrls: vi.fn(() => []),
+  isPdfUrl: vi.fn(() => false),
+  normalizeUrl: vi.fn((u: string) => u),
+}));
+
 import GenerateTest from './GenerateTest.svelte';
 import { createTest } from '../lib/dbService';
 import { generateFromPrompt } from '../lib/testGenerator';
 import { settingsStore } from '../lib/settingsStore.svelte';
+import { extractUrls } from '../lib/urlExtractor';
 
 describe('GenerateTest', () => {
   beforeEach(() => {
@@ -632,5 +640,72 @@ describe('GenerateTest', () => {
     // After regenerate: all answers should be blurred again
     expect(document.querySelector('#q-correct-0')).toBeNull();
     expect(document.querySelector('.blur-placeholder[aria-label="Click to reveal answer"]')).toBeTruthy();
+  });
+});
+
+// ── URL detection badge (Task 16 RED) ─────────────────────────────
+describe('URL detection badge', () => {
+  beforeEach(() => {
+    vi.mocked(settingsStore.settings).enableUrlFetch = true;
+  });
+
+  it('is hidden when prompt is empty', () => {
+    render(GenerateTest);
+    expect(screen.queryByTestId('url-detection-badge')).toBeNull();
+  });
+
+  it('shows "1 URL detected" when prompt has one URL', async () => {
+    vi.mocked(extractUrls).mockReturnValue(['https://example.com']);
+    render(GenerateTest);
+    const textarea = screen.getByPlaceholderText(
+      'Describe the test topic or paste content...'
+    );
+    await fireEvent.input(textarea, {
+      target: { value: 'Generate questions from https://example.com' },
+    });
+    expect(
+      screen.getByTestId('url-detection-badge').textContent ?? ''
+    ).toContain('1 URL detected');
+  });
+
+  it('shows "2 URLs detected" when prompt has two URLs', async () => {
+    vi.mocked(extractUrls).mockReturnValue(['https://a.com', 'https://b.com']);
+    render(GenerateTest);
+    const textarea = screen.getByPlaceholderText(
+      'Describe the test topic or paste content...'
+    );
+    await fireEvent.input(textarea, {
+      target: { value: 'See https://a.com and https://b.com' },
+    });
+    expect(
+      screen.getByTestId('url-detection-badge').textContent ?? ''
+    ).toContain('2 URLs detected');
+  });
+
+  it('is hidden when enableUrlFetch is false', async () => {
+    vi.mocked(settingsStore.settings).enableUrlFetch = false;
+    render(GenerateTest);
+    const textarea = screen.getByPlaceholderText(
+      'Describe the test topic or paste content...'
+    );
+    await fireEvent.input(textarea, {
+      target: { value: 'See https://a.com' },
+    });
+    expect(screen.queryByTestId('url-detection-badge')).toBeNull();
+  });
+
+  it('has LLM-disclosure tooltip on the badge', async () => {
+    vi.mocked(extractUrls).mockReturnValue(['https://example.com']);
+    render(GenerateTest);
+    const textarea = screen.getByPlaceholderText(
+      'Describe the test topic or paste content...'
+    );
+    await fireEvent.input(textarea, {
+      target: { value: 'Visit https://example.com' },
+    });
+    const badge = screen.getByTestId('url-detection-badge');
+    expect(badge.getAttribute('title') ?? '').toContain(
+      'URL content will be sent to'
+    );
   });
 });
