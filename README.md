@@ -42,6 +42,16 @@ and ships installers for Windows, macOS, and Linux.
   textarea flex-grows to fill the card instead of leaving an empty gap
   below the topic input.
 
+## What's New in v0.3.0
+
+- **URL ingestion** — When enabled in Settings, URLs pasted into the
+  test-generation prompt are fetched and their content is added to the LLM
+  context. Supports HTML and PDF URLs.
+- **CI improvements** — GitHub Actions upgraded to Node.js 24; resolved
+  lint/typecheck/test issues.
+- **Internal** — Added `@mozilla/readability` for content extraction; new
+  `fetch_and_extract_pdf_url` Tauri command for PDF URL support.
+
 ## What's New in v0.2.5
 
 - **Topic input** on the Generate Test page is now optional and is sent
