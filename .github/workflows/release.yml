@@ -77,8 +77,10 @@ jobs:
       # --- Manual trigger path: workflow_dispatch ----------------------------
       # tauri-action needs a real git tag, so for manual runs we just build
       # the bundles locally (no release is created).
+      # The npm ci gate also covers tag push — tauri-action shells out to
+      # `npm run tauri build`, which needs node_modules/.bin populated.
       - name: Install dependencies
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
         run: npm ci
 
       - name: Build bundles (manual trigger)
