@@ -13,6 +13,24 @@ vi.mock('./api', () => ({
 import { generateTest } from './api';
 
 // ============================================================
+// Mock the URL fetch module (HTML fetch + context builder)
+// ============================================================
+
+vi.mock('./urlFetch', () => ({
+  fetchAndExtractUrls: vi.fn(),
+  buildUrlFetchContext: vi.fn(),
+  fetchAndExtractUrl: vi.fn(),
+}));
+
+// ============================================================
+// Mock the Tauri invoke (for PDF URL fetch command)
+// ============================================================
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(),
+}));
+
+// ============================================================
 // Mock settingsStore (mutable settings for research flag tests)
 // vi.mock factories are hoisted above module-scope `const`, so we use
 // vi.hoisted() to create the shared mutable settings object.
@@ -38,6 +56,9 @@ const { mockSettings } = vi.hoisted(() => ({
     enableResearch: false,
     researchMaxResults: 5,
     researchMaxSnippetChars: 800,
+    enableUrlFetch: false,
+    urlFetchMaxResults: 5,
+    urlFetchMaxBytesPerUrl: 2_000_000,
   },
 }));
 
@@ -788,5 +809,121 @@ describe('research integration', () => {
     expect(warnSpy).toHaveBeenCalled();
     const warnCall = warnSpy.mock.calls.map((c) => c.join(' ')).join(' | ');
     expect(warnCall).toContain('RESEARCH_FETCH_FAILED');
+  });
+});
+
+// ============================================================
+// URL fetch context integration (opt-in settings flag)
+// ============================================================
+
+import { fetchAndExtractUrls, buildUrlFetchContext } from './urlFetch';
+import { invoke } from '@tauri-apps/api/core';
+
+const URL_CONTEXT_BLOCK =
+  'URL CONTEXT:\n[URL 1] Example Domain\nExample content from the page.\nSource: https://example.com';
+
+describe('URL fetch context integration', () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSettings.enableUrlFetch = false;
+    vi.mocked(fetchAndExtractUrls).mockResolvedValue([]);
+    vi.mocked(buildUrlFetchContext).mockReturnValue('');
+    vi.mocked(invoke).mockResolvedValue('');
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('appends URL CONTEXT block when enableUrlFetch is true and prompt contains a URL', async () => {
+    vi.mocked(generateTest).mockResolvedValueOnce(createValidTest());
+    vi.mocked(fetchAndExtractUrls).mockResolvedValue([
+      {
+        url: 'https://example.com',
+        title: 'Example Domain',
+        content: 'Example content from the page.',
+        contentLength: 28,
+      },
+    ]);
+    vi.mocked(buildUrlFetchContext).mockReturnValue(URL_CONTEXT_BLOCK);
+    mockSettings.enableUrlFetch = true;
+
+    await generateFromPrompt(
+      'Please base the test on https://example.com',
+      DEFAULT_CONFIG,
+      TEST_API_KEY
+    );
+
+    expect(fetchAndExtractUrls).toHaveBeenCalledTimes(1);
+    const [calledUrls] = vi.mocked(fetchAndExtractUrls).mock.calls[0];
+    expect(calledUrls).toEqual(['https://example.com']);
+
+    const [prompt] = vi.mocked(generateTest).mock.calls[0];
+    expect(prompt).toContain('URL CONTEXT:');
+    expect(prompt).toContain('[URL 1] Example Domain');
+    expect(prompt).toContain('Source: https://example.com');
+    // URL CONTEXT appears after the main prompt template
+    expect(prompt.indexOf('URL CONTEXT:')).toBeGreaterThan(
+      prompt.indexOf('Now generate a test with the following formatting requirements')
+    );
+  });
+
+  it('does not call urlFetch when enableUrlFetch is false', async () => {
+    vi.mocked(generateTest).mockResolvedValueOnce(createValidTest());
+    mockSettings.enableUrlFetch = false;
+
+    await generateFromPrompt(
+      'Please base the test on https://example.com',
+      DEFAULT_CONFIG,
+      TEST_API_KEY
+    );
+
+    expect(fetchAndExtractUrls).not.toHaveBeenCalled();
+    expect(buildUrlFetchContext).not.toHaveBeenCalled();
+
+    const [prompt] = vi.mocked(generateTest).mock.calls[0];
+    expect(prompt).not.toContain('URL CONTEXT:');
+  });
+
+  it('completes generation without throwing when URL fetch fails', async () => {
+    vi.mocked(generateTest).mockResolvedValueOnce(createValidTest());
+    vi.mocked(fetchAndExtractUrls).mockRejectedValue(new Error('Network exploded'));
+    mockSettings.enableUrlFetch = true;
+
+    const test = await generateFromPrompt(
+      'Please base the test on https://example.com',
+      DEFAULT_CONFIG,
+      TEST_API_KEY
+    );
+
+    expect(test).toBeDefined();
+    expect(test.questions).toHaveLength(5);
+    expect(fetchAndExtractUrls).toHaveBeenCalledTimes(1);
+
+    const [prompt] = vi.mocked(generateTest).mock.calls[0];
+    // User prompt still present
+    expect(prompt).toContain('Please base the test on https://example.com');
+    expect(prompt).toContain('Now generate a test with the following formatting requirements');
+    // No URL CONTEXT block because fetch failed gracefully
+    expect(prompt).not.toContain('URL CONTEXT:');
+    expect(warnSpy).toHaveBeenCalled();
+    const warnCall = warnSpy.mock.calls.map((c) => c.join(' ')).join(' | ');
+    expect(warnCall).toContain('URL_FETCH_FAILED');
+  });
+
+  it('does not call urlFetch when prompt has no URLs', async () => {
+    vi.mocked(generateTest).mockResolvedValueOnce(createValidTest());
+    mockSettings.enableUrlFetch = true;
+
+    await generateFromPrompt('Focus on closures and prototypes', DEFAULT_CONFIG, TEST_API_KEY);
+
+    expect(fetchAndExtractUrls).not.toHaveBeenCalled();
+    expect(buildUrlFetchContext).not.toHaveBeenCalled();
+
+    const [prompt] = vi.mocked(generateTest).mock.calls[0];
+    expect(prompt).not.toContain('URL CONTEXT:');
   });
 });

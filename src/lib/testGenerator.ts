@@ -3,6 +3,9 @@ import type { Test, TestConfig, Settings } from './types';
 import { createApiError, ErrorCodes } from './errorUtils';
 import { settingsStore } from './settingsStore.svelte';
 import { searchWeb, searchDocument, buildResearchContext } from './research';
+import { extractUrls, isPdfUrl } from './urlExtractor';
+import { fetchAndExtractUrls, buildUrlFetchContext, type UrlFetchResult } from './urlFetch';
+import { invoke } from '@tauri-apps/api/core';
 
 // ============================================================
 // Formatting requirements (shared between prompt builders)
@@ -191,11 +194,63 @@ async function gatherResearchContext(
 }
 
 // ============================================================
+// URL fetch context (opt-in)
+// ============================================================
+
+/**
+ * Extract URLs from `prompt`, fetch their content (HTML via
+ * `fetchAndExtractUrls`, PDF via the `fetch_and_extract_pdf_url` Tauri
+ * command), and return a serialized `URL CONTEXT:` block.
+ *
+ * Returns `''` when `enableUrlFetch` is off, the prompt has no URLs, or
+ * any fetch/parse error occurs (graceful degradation — never throws).
+ *
+ * For file-based generation, pass the `userPrompt` argument (not the
+ * file content) so we only extract URLs the user explicitly typed.
+ */
+async function gatherUrlContext(prompt: string, settings: Settings): Promise<string> {
+  if (settings.enableUrlFetch !== true) {
+    return '';
+  }
+
+  try {
+    const urls = extractUrls(prompt);
+    if (urls.length === 0) return '';
+
+    const htmlUrls = urls.filter((u) => !isPdfUrl(u));
+    const pdfUrls = urls.filter(isPdfUrl);
+
+    const htmlResults: UrlFetchResult[] = await fetchAndExtractUrls(htmlUrls, settings);
+
+    const pdfResults: UrlFetchResult[] = [];
+    for (const url of pdfUrls) {
+      try {
+        const pdfText = await invoke<string>('fetch_and_extract_pdf_url', { url });
+        pdfResults.push({
+          url,
+          title: url.split('/').pop() || url,
+          content: pdfText,
+          contentLength: pdfText.length,
+        });
+      } catch (err) {
+        console.warn(`[urlFetch] PDF_FETCH_FAILED: ${url}`, err);
+      }
+    }
+
+    return buildUrlFetchContext([...htmlResults, ...pdfResults]);
+  } catch (err) {
+    console.warn('[urlFetch] URL_FETCH_FAILED: gatherUrlContext error', err);
+    return '';
+  }
+}
+
+// ============================================================
 // Core generation pipeline (shared between prompt and file paths)
 // ============================================================
 
 /**
- * Core generation pipeline: research context, API call, validation, persistence.
+ * Core generation pipeline: research context, URL context, API call,
+ * validation, persistence.
  *
  * Shared by both {@link generateFromPrompt} and {@link generateFromFile} to
  * avoid duplicating the generation/validation/persist logic.
@@ -205,6 +260,9 @@ async function gatherResearchContext(
  * @param apiKey            OpenRouter API key.
  * @param personalityPrompt Optional personality system prefix.
  * @param uploadedText      Optional study-material text for research context.
+ * @param urlSourcePrompt   Optional text to scan for URLs (the user's typed
+ *                          instruction — NOT file content). When omitted,
+ *                          no URL fetch is performed.
  * @returns The generated and validated Test.
  */
 async function generateCore(
@@ -212,16 +270,24 @@ async function generateCore(
   config: TestConfig,
   apiKey: string,
   personalityPrompt?: string,
-  uploadedText?: string
+  uploadedText?: string,
+  urlSourcePrompt?: string
 ): Promise<Test> {
+  const settings = settingsStore.settings;
   const researchContext = await gatherResearchContext(
     config.topic || '',
     uploadedText,
-    settingsStore.settings
+    settings
   );
-  const prompt = researchContext ? `${fullPrompt}\n\n${researchContext}` : fullPrompt;
+  const urlContext = urlSourcePrompt
+    ? await gatherUrlContext(urlSourcePrompt, settings)
+    : '';
 
-  const provider = settingsStore.settings.provider || 'openrouter';
+  const contextBlocks = [researchContext, urlContext].filter(Boolean);
+  const prompt =
+    contextBlocks.length > 0 ? `${fullPrompt}\n\n${contextBlocks.join('\n\n')}` : fullPrompt;
+
+  const provider = settings.provider || 'openrouter';
   const test = await generateTest(prompt, config, apiKey, undefined, personalityPrompt, provider);
 
   validateTestStructure(test, config);
@@ -266,7 +332,7 @@ export async function generateFromPrompt(
   uploadedText?: string
 ): Promise<Test> {
   const fullPrompt = buildRichPrompt(config, prompt);
-  return generateCore(fullPrompt, config, apiKey, personalityPrompt, uploadedText);
+  return generateCore(fullPrompt, config, apiKey, personalityPrompt, uploadedText, prompt);
 }
 
 /**
@@ -313,5 +379,5 @@ export async function generateFromFile(
   // Append formatting requirements (not wrapped again — this is the only template pass)
   fullPrompt += `\n\n---\n\nNow generate a test with the following formatting requirements:\n\n${buildFormattingRequirements(config)}`;
 
-  return generateCore(fullPrompt, config, apiKey, personalityPrompt, fileContent);
+  return generateCore(fullPrompt, config, apiKey, personalityPrompt, fileContent, userPrompt);
 }
