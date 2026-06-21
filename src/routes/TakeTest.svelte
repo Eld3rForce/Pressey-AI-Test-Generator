@@ -7,6 +7,8 @@
     createPartialAttempt,
     getAllTests,
     getAttempts,
+    getInProgressAttempt,
+    getResponses,
   } from '../lib/dbService';
   import { mapApiError } from '../lib/errorUtils';
   import type { Test, Question, Response, Attempt } from '../lib/types';
@@ -170,6 +172,37 @@
       if (hasCompleted && !hasInProgress) {
         showCompletedPanel = true;
         completedAttempts = attempts.filter((a) => a.completedAt !== undefined);
+        return;
+      }
+
+      // ── Resume from partial attempt (Bug 3 Phase 3) ──────────────
+      const partial = await getInProgressAttempt(id);
+      if (partial && partial.id != null) {
+        attemptId = partial.id;
+        // Restore currentIndex, clamping to valid range
+        const restored = partial.currentIndex ?? 0;
+        if (restored >= 0 && restored < t.questions.length) {
+          currentIndex = restored;
+        } else {
+          // Out of range (e.g., test was edited to have fewer questions)
+          console.warn(
+            `Partial attempt currentIndex ${restored} out of range [0, ${t.questions.length}), clamping to 0`
+          );
+          currentIndex = 0;
+        }
+        // Restore answers from saved responses (currently empty since
+        // Task 3's "Save & exit" does not persist responses, but the
+        // code path must exist for future extensibility)
+        try {
+          const saved = await getResponses(partial.id);
+          const next = new Map<number, string>();
+          for (const r of saved) {
+            if (r.userAnswer) next.set(r.questionId, r.userAnswer);
+          }
+          answers = next;
+        } catch (e) {
+          console.error('Failed to load saved responses:', e);
+        }
       }
     } catch (e) {
       loadError = mapApiError(e);
@@ -279,8 +312,14 @@
       intervalId = null;
     }
     try {
-      const aid = await createAttempt(test.id);
-      attemptId = aid;
+      // ── Use existing attempt if resuming, else create new ───────
+      let aid: number;
+      if (attemptId != null) {
+        aid = attemptId;
+      } else {
+        aid = await createAttempt(test.id);
+        attemptId = aid;
+      }
 
       // ── AI marking for text questions ──────────────────────────────
       const textQuestions = test.questions.filter((q) => q.type === 'text' && q.id != null);

@@ -53,6 +53,40 @@ const mockEmptyTest = vi.hoisted(() => ({
   updatedAt: '2025-01-03T00:00:00Z',
 }));
 
+// 4-question test used by resume tests (so currentIndex: 3 is in range)
+const mockTestLong = vi.hoisted(() => ({
+  id: 1,
+  title: 'Science Quiz',
+  topic: 'Biology',
+  difficulty: 'Medium',
+  questionCount: 4,
+  mcqPercentage: 75,
+  questions: [
+    {
+      id: 101, type: 'mcq' as const, text: 'Q1: powerhouse of the cell?',
+      options: ['Nucleus', 'Mitochondria', 'Ribosome', 'Golgi'],
+      correctAnswer: 'Mitochondria', explanation: '', orderIndex: 0,
+    },
+    {
+      id: 102, type: 'mcq' as const, text: 'Q2: gas plants absorb?',
+      options: ['Oxygen', 'Nitrogen', 'CO2', 'Helium'],
+      correctAnswer: 'CO2', explanation: '', orderIndex: 1,
+    },
+    {
+      id: 103, type: 'mcq' as const, text: 'Q3: largest planet?',
+      options: ['Earth', 'Mars', 'Jupiter', 'Saturn'],
+      correctAnswer: 'Jupiter', explanation: '', orderIndex: 2,
+    },
+    {
+      id: 104, type: 'mcq' as const, text: 'Q4: H2O is?',
+      options: ['Salt', 'Water', 'Acid', 'Sugar'],
+      correctAnswer: 'Water', explanation: '', orderIndex: 3,
+    },
+  ],
+  createdAt: '2025-01-01T00:00:00Z',
+  updatedAt: '2025-01-01T00:00:00Z',
+}));
+
 // ── Mock appStore ─────────────────────────────────────────────────────
 const mockAppStore = vi.hoisted(() => ({
   activeRoute: 'take' as const,
@@ -85,6 +119,7 @@ vi.mock('../lib/dbService', () => ({
   saveExplanations: vi.fn().mockResolvedValue(undefined),
   getExplanations: vi.fn().mockResolvedValue([]),
   createPartialAttempt: vi.fn().mockResolvedValue(99),
+  getInProgressAttempt: vi.fn().mockResolvedValue(null),
 }));
 
 // ── Mock marking module ────────────────────────────────────────────────
@@ -121,6 +156,8 @@ import {
   createPartialAttempt,
   getAllTests,
   getAttempts,
+  getInProgressAttempt,
+  getResponses,
 } from '../lib/dbService';
 import { appStore } from '../lib/appStore.svelte';
 
@@ -132,6 +169,8 @@ describe('TakeTest', () => {
     vi.mocked(saveResponses).mockResolvedValue(undefined);
     vi.mocked(completeAttempt).mockResolvedValue(undefined);
     vi.mocked(createPartialAttempt).mockResolvedValue(99);
+    vi.mocked(getInProgressAttempt).mockResolvedValue(null);
+    vi.mocked(getResponses).mockResolvedValue([]);
     // Defaults: empty test list, no attempts
     vi.mocked(getAllTests).mockResolvedValue([]);
     vi.mocked(getAttempts).mockResolvedValue([]);
@@ -512,6 +551,144 @@ describe('TakeTest', () => {
         selectedTestId: 1,
         selectedAttemptId: 42,
       });
+    });
+  });
+
+  // ── Resume from partial attempt (Bug 3 Phase 3) ─────────────────────
+  describe('Resume from partial attempt', () => {
+    // 1. Resume button on the landing calls navigateTo with selectedTestId.
+    // loadTest (not the click handler) is what does the actual resume work.
+    it('Resume button on landing calls navigateTo with selectedTestId', async () => {
+      vi.mocked(getAllTests).mockResolvedValue([mockTest]);
+      vi.mocked(getAttempts).mockResolvedValue([
+        { id: 10, testId: 1 /* completedAt undefined → in-progress */ },
+      ]);
+      render(TakeTest, { testId: null });
+      await waitFor(() => {
+        expect(screen.getByText('In progress')).toBeTruthy();
+      });
+      await fireEvent.click(screen.getByTestId('resume-test'));
+      expect(appStore.navigateTo).toHaveBeenCalledWith('take', { selectedTestId: 1 });
+    });
+
+    // 2. loadTest restores currentIndex from the partial attempt row.
+    it('loadTest restores currentIndex from partial attempt', async () => {
+      vi.mocked(getTest).mockResolvedValueOnce(mockTestLong);
+      vi.mocked(getInProgressAttempt).mockResolvedValueOnce({
+        id: 42,
+        testId: 1,
+        startedAt: '2025-01-01T00:00:00Z',
+        completedAt: undefined,
+        currentIndex: 3,
+      });
+      render(TakeTest, { testId: 1 });
+      await waitFor(() => {
+        // currentIndex 3 → "Question 4 of 4" (4-question mockTestLong)
+        expect(screen.getByText('Question 4 of 4')).toBeTruthy();
+      });
+      expect(getInProgressAttempt).toHaveBeenCalledWith(1);
+    });
+
+    // 3. loadTest restores answers from the partial attempt's responses.
+    it('loadTest restores answers from partial attempt responses', async () => {
+      vi.mocked(getInProgressAttempt).mockResolvedValueOnce({
+        id: 42,
+        testId: 1,
+        startedAt: '2025-01-01T00:00:00Z',
+        completedAt: undefined,
+        currentIndex: 0,
+      });
+      vi.mocked(getResponses).mockResolvedValueOnce([
+        {
+          id: 1,
+          attemptId: 42,
+          questionId: 101,
+          userAnswer: 'Mitochondria',
+          isCorrect: false,
+        },
+      ]);
+      render(TakeTest, { testId: 1 });
+      await waitFor(() => {
+        expect(getResponses).toHaveBeenCalledWith(42);
+      });
+      // The radio with value "Mitochondria" should be checked.
+      const radio = screen.getByDisplayValue('Mitochondria') as HTMLInputElement;
+      expect(radio.checked).toBe(true);
+    });
+
+    // 4. loadTest clamps out-of-range currentIndex to 0 and logs a warning.
+    it('loadTest clamps currentIndex when it exceeds questions.length', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      vi.mocked(getInProgressAttempt).mockResolvedValueOnce({
+        id: 42,
+        testId: 1,
+        startedAt: '2025-01-01T00:00:00Z',
+        completedAt: undefined,
+        currentIndex: 99,
+      });
+      render(TakeTest, { testId: 1 });
+      await waitFor(() => {
+        // Clamped to 0 → "Question 1 of 3" (default mockTest has 3 questions)
+        expect(screen.getByText('Question 1 of 3')).toBeTruthy();
+      });
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    // 5. Submitting a resumed test updates the existing attempt row, not a new one.
+    it('Submitting a resumed test updates the existing attempt (no new attempt created)', async () => {
+      vi.mocked(getInProgressAttempt).mockResolvedValueOnce({
+        id: 42,
+        testId: 1,
+        startedAt: '2025-01-01T00:00:00Z',
+        completedAt: undefined,
+        currentIndex: 2,
+      });
+      vi.mocked(createAttempt).mockClear();
+      const onComplete = vi.fn();
+      render(TakeTest, { testId: 1, onComplete });
+      // Resume placed us on Q3 (currentIndex = 2).
+      await waitFor(() => {
+        expect(screen.getByText('Question 3 of 3')).toBeTruthy();
+      });
+      await fireEvent.click(screen.getByRole('button', { name: 'Finish Test' }));
+      await waitFor(() => {
+        expect(screen.getByText('Submit test?')).toBeTruthy();
+      });
+      await fireEvent.click(screen.getByRole('button', { name: 'Submit test' }));
+      await waitFor(() => {
+        expect(screen.getByText('Test complete')).toBeTruthy();
+      });
+      // No new attempt row was created; existing attempt 42 was completed.
+      expect(createAttempt).not.toHaveBeenCalled();
+      expect(saveResponses).toHaveBeenCalled();
+      expect(completeAttempt).toHaveBeenCalledWith(42, expect.any(Number), 3);
+      expect(onComplete).toHaveBeenCalledWith(42, expect.any(Number), 3);
+    });
+
+    // 6. App restart scenario: the partial attempt is recovered when the
+    // component is freshly mounted with the same testId.
+    it('App restart: partial attempt is recovered on next mount', async () => {
+      vi.mocked(getInProgressAttempt).mockResolvedValue({
+        id: 42,
+        testId: 1,
+        startedAt: '2025-01-01T00:00:00Z',
+        completedAt: undefined,
+        currentIndex: 2,
+      });
+      const { unmount } = render(TakeTest, { testId: 1 });
+      await waitFor(() => {
+        expect(screen.getByText('Question 3 of 3')).toBeTruthy();
+      });
+      expect(getInProgressAttempt).toHaveBeenCalledWith(1);
+      // Simulate a full restart: unmount, then mount again.
+      unmount();
+      render(TakeTest, { testId: 1 });
+      await waitFor(() => {
+        expect(screen.getByText('Question 3 of 3')).toBeTruthy();
+      });
+      // getInProgressAttempt was queried again on the new mount.
+      expect(getInProgressAttempt).toHaveBeenCalledTimes(2);
     });
   });
 });
