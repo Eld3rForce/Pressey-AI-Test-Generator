@@ -1,117 +1,177 @@
-# Pressey AI Test Generator
+<div align="center">
 
-A desktop app that turns a topic (or a source document) into an editable,
-exportable test in seconds. Built with **Tauri v2** (Rust backend) and a
-Svelte 5 + Tailwind v4 frontend, Pressey is local-first, multi-provider,
-and ships installers for Windows, macOS, and Linux.
+# Pressey — AI test generator
 
-> **Latest release: v0.3.0** — see [What's New](#whats-new-in-v030) below.
+**Generate practice tests on any topic, with your own AI.**
 
----
+A free, open-source desktop app that turns a topic, a document, or a webpage
+into an editable practice test. You bring the AI service, Pressey does the
+rest: writing the questions, grading your answers, and exporting the result
+as a PDF.
 
-## Features
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/Eld3rForce/Pressey-AI-Test-Generator/releases/latest)
+[![Windows](https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white)](https://github.com/Eld3rForce/Pressey-AI-Test-Generator/releases/latest)
+[![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white)](https://github.com/Eld3rForce/Pressey-AI-Test-Generator/releases/latest)
+[![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)](https://github.com/Eld3rForce/Pressey-AI-Test-Generator/releases/latest)
 
-- **Multi-provider LLM support** — OpenRouter, OpenAI, Anthropic, Gemini, and
-  Ollama, each with its own per-provider API key in Settings.
-- **Two question types, fully tunable** — Multiple Choice and Open Response,
-  with a per-test MCQ % slider, question count (1–50), and Easy / Medium /
-  Hard difficulty.
-- **Source material ingestion** — upload `.txt`, `.md`, or `.pdf` files;
-  pressey extracts the text on the Rust side and feeds it to the generator.
-- **URL ingestion** — paste URLs in the prompt and pressey fetches them
-  (HTML via Readability, PDF via a Rust Tauri command) and folds the
-  extracted text into the LLM context, so the generator can author
-  questions grounded in the linked material. Opt-in per URL and per
-  Settings toggle.
-- **Inline editing & review** — every generated question, option, answer, and
-  explanation is editable in-place before you save; "Show Answers" reveals
-  model answers and explanations.
-- **Take & resume** — start a test, walk away, and pick up where you left off
-  (partial attempts persist locally).
-- **Semantic marking** — short-answer responses are graded against the model
-  answer with rubric-aware semantic similarity, not just string equality.
-- **PDF export** — render finished tests (with or without answers) to PDF
-  straight from the frontend.
-- **Local-first storage** — SQLite via Tauri, storing tests, attempts, and
-  responses on disk; nothing leaves your machine except the LLM request
-  itself.
-- **Personality & research** — optional system-personality prefix, custom
-  instructions, and web research augmentation for prompt construction.
+<!-- TODO: add screenshot -->
+
+</div>
 
 ---
 
-## What's New in v0.3.0
+## What is Pressey?
 
-- **URL ingestion** — When enabled in Settings, URLs pasted into the
-  test-generation prompt are fetched and their content is added to the LLM
-  context. Supports HTML and PDF URLs.
-- **CI improvements** — GitHub Actions upgraded to Node.js 24; resolved
-  lint/typecheck/test issues.
-- **Internal** — Added `@mozilla/readability` for content extraction; new
-  `fetch_and_extract_pdf_url` Tauri command for PDF URL support.
+Pressey is a desktop app that turns a topic, a document, or a webpage into a
+practice test you can edit, take, and save. Pick the AI service you already
+use, choose how many questions you want, and Pressey writes the questions,
+grades your answers, and exports the result as a PDF. Everything you create
+stays on your computer.
 
-## What's New in v0.2.6
+## What can it do?
 
-- **Generate Test layout balance** — the prompt/topic card and the
-  Configuration sidebar now share the same height on desktop. The prompt
-  textarea flex-grows to fill the card instead of leaving an empty gap
-  below the topic input.
+- **Works with the AI you already use.** If you have an account with OpenAI,
+  Anthropic, Google Gemini, or you run a local AI on your computer, Pressey
+  works with it.
+- **Build a test from anything.** Type a topic, upload a file (`.txt`, `.md`,
+  or `.pdf`), or paste a URL. Pressey reads the source and turns it into
+  questions.
+- **Edit anything before you save.** Every question, answer choice, model
+  answer, and explanation is editable in place, so you can fix wording,
+  correct a wrong answer, or sharpen an explanation without starting over.
+- **Show answers when you're ready.** A "Show Answers" button reveals the
+  model's answer and explanation for each question on demand, perfect for
+  studying after a first attempt.
+- **Take a test, leave, come back.** Your in-progress answers are saved
+  automatically. Close the app and pick up where you left off later, on the
+  same machine.
+- **Smart grading for short answers.** Short-answer questions are graded
+  against the model answer using AI similarity, not just exact wording. So
+  "Paris" gets credit for "the capital of France."
+- **Export to PDF.** Save the finished test (with or without an answer key)
+  as a PDF in one click. Ready to print, share, or hand out.
+- **Everything stays on your computer.** All your tests and answers are
+  stored locally on your hard drive. Nothing is sent to a server, only the
+  question text is sent to the AI when you generate or grade a test.
+- **Customize the AI's personality.** Pick a tone for the AI (formal,
+  friendly, socratic, and so on), add your own custom instructions, and
+  optionally let the AI search the web for fresh material when generating
+  questions.
+- **You control the difficulty.** Pick the number of questions (1 to 50),
+  choose the mix of multiple-choice vs. short-answer, and set the
+  difficulty to Easy, Medium, or Hard.
 
-## What's New in v0.2.5
+## How to install
 
-- **Topic input** on the Generate Test page is now optional and is sent
-  through to the generator when populated.
+> **You need an API key.** Before you generate your first test, open
+> **Settings** inside the app and add an API key for the AI service you
+> want to use. If you have an account with OpenRouter, OpenAI, Anthropic,
+> or Google Gemini, paste the key there. Ollama users don't need a key at
+> all, Pressey connects to a local AI automatically.
 
-## What's New in v0.2.4
+Pick whichever option fits how you work.
 
-- **Per-provider API key validation** in the Generate flow.
-- **MCQ tooltip** explaining what "Multiple Choice" means.
-- **Take Test: resume partial attempt** support.
+### Option 1: Use a package manager
 
----
+The easiest way to install Pressey and keep it up to date. All three of
+these are submitted for review and will work as soon as the upstream
+maintainers approve them.
 
-## Installation
+#### Windows (winget)
 
-Pre-built binaries for Windows (MSI + NSIS), macOS (Intel + Apple Silicon,
-`.dmg`) and Linux (`.deb` + `.AppImage`) are published on the GitHub
-Releases page:
+```powershell
+winget install Eld3rForce.Pressey-AI-Test-Generator
+```
+
+<sub>Submitted as PR to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs/pull/391360), awaiting review.</sub>
+
+#### Windows (Scoop)
+
+```powershell
+scoop install extras/pressey-ai-test-generator
+```
+
+<sub>Submitted as PR to [ScoopInstaller/Extras](https://github.com/ScoopInstaller/Extras/pull/18112), awaiting review.</sub>
+
+#### macOS (Homebrew)
+
+```bash
+brew install Eld3rForce/homebrew-pressey-ai-test-generator/pressey-ai-test-generator
+```
+
+<sub>Installs from a [personal tap](https://github.com/Eld3rForce/homebrew-pressey-ai-test-generator) because the project isn't signed. The official Homebrew Cask repository requires Apple Developer ID signing for all submissions as of 2025.</sub>
+
+### Option 2: Download an installer
+
+Grab a pre-built installer for your platform from the GitHub Releases page:
 
 <https://github.com/Eld3rForce/Pressey-AI-Test-Generator/releases/latest>
 
-Each release ships with a `SHA256SUMS.txt` file — verify the integrity of
-the artifact you downloaded with:
+Available formats:
+
+- **Windows:** `.msi` (Windows Installer) and `-setup.exe` (NSIS installer)
+- **macOS:** `.dmg` for both Intel and Apple Silicon Macs
+- **Linux:** `.deb` (Debian/Ubuntu) and `.AppImage` (portable, no install)
+
+> **First-run warnings on unsigned installers.** Pressey isn't code-signed,
+> so your operating system will show a warning the first time you launch
+> the app. Here's how to get past each one:
+>
+> - **Windows SmartScreen:** Click **More info**, then click **Run anyway**.
+> - **macOS Gatekeeper:** Right-click the app in Finder, choose **Open**,
+>   then click **Open** in the confirmation dialog. (Or install via the
+>   Homebrew command above to skip this step entirely.)
+> - **Linux:** No warnings, just run the file.
+
+### Option 3: Build it yourself
+
+If you'd rather build Pressey from source, see the
+[Build it yourself](#build-it-yourself) section below for prerequisites
+and the exact commands.
+
+### Option 4: Verify your download
+
+Each release ships with a `SHA256SUMS.txt` file. After downloading an
+installer, run this in the folder that contains the installer and the
+checksum file:
 
 ```bash
 sha256sum -c SHA256SUMS.txt
 ```
 
-> **First run:** open the app and head to **Settings** to add at least one
-> provider API key before generating a test.
+A line per file should print `OK`. If any line says `FAILED`, do not run
+the installer; delete it and download it again.
 
----
+## How to use it
 
-## How It Works
+1. **Generate.** Type a topic, upload a file, or paste a URL. Pick how
+   many questions you want, the mix of multiple-choice vs. short-answer,
+   and the difficulty. Click **Generate Test**.
+2. **Review.** Read through the questions. Fix any wording, correct
+   answers, or explanations that don't sound right. This is the best
+   moment to catch a wrong answer before saving.
+3. **Save.** When it looks good, save the test to your local library.
+4. **Take.** Open a saved test from the library, answer each question,
+   and submit. You can leave and come back any time, and partial
+   attempts are saved as you go.
+5. **Export.** When you're done, save the test (and its answer key) as
+   a PDF for printing or sharing.
 
-1. **Generate** — describe a topic (or upload a source file), pick your
-   question count, MCQ/text mix, and difficulty, and click **Generate Test**.
-   The selected LLM authors the questions, model answers, and explanations.
-2. **Review & edit** — tweak wording, fix answers, adjust explanations, or
-   discard the whole set and start over.
-3. **Save** — store the test in the local library.
-4. **Take** — open a test from the library, answer each question, and submit.
-   You can leave and resume any time.
-5. **Export** — print or save the test (and answer key) as a PDF.
+## Build it yourself
 
----
-
-## Development
+If you want to build Pressey from source, you'll need a few tools first.
 
 ### Prerequisites
 
-- **Node.js** 20+
+- **Node.js** 20 or newer
 - **Rust** stable (install via [rustup](https://rustup.rs/))
-- **Platform toolchains** — MSVC Build Tools on Windows, Xcode CLT on macOS,
-  `build-essential` + `webkit2gtk` on Linux
+- **Platform toolchains:**
+  - **Windows:** Microsoft C++ Build Tools (the
+    "Desktop development with C++" workload)
+  - **macOS:** Xcode Command Line Tools (`xcode-select --install`)
+  - **Linux:** `build-essential` and the `webkit2gtk-4.1` development
+    packages
 
 ### Install
 
@@ -139,13 +199,31 @@ npm test
 npm run tauri build
 ```
 
-Bundles land in `src-tauri/target/release/bundle/`. The convenience copies
-in `bin/<platform>/` are refreshed from there — see `bin/README.md` for the
-exact copy commands.
+The finished installers land in `src-tauri/target/release/bundle/`. The
+convenience copies in `bin/<platform>/` are refreshed from there. See
+`bin/README.md` for the exact copy commands.
 
----
+### Troubleshooting
 
-## Recommended IDE Setup
+- **Linux build fails with "webkit2gtk not found":** install the
+  development package for your distro. On Debian/Ubuntu it's
+  `libwebkit2gtk-4.1-dev`. On Fedora it's `webkit2gtk4.1-devel`.
+- **macOS build fails with "no SDK":** run `xcode-select --install` and
+  accept the license with `sudo xcodebuild -license accept`.
+- **Windows build fails with "link.exe not found":** the C++ Build Tools
+  aren't on your `PATH`. Open the "x64 Native Tools Command Prompt"
+  from the Start menu and run `npm run tauri build` from there.
+
+## For developers
+
+### Quality gates (run before a release)
+
+```bash
+cargo fmt --check --manifest-path src-tauri/Cargo.toml
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+```
+
+### Recommended IDE Setup
 
 - [VS Code](https://code.visualstudio.com/) + the
   [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode)
@@ -153,14 +231,25 @@ exact copy commands.
   [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
   extensions.
 
----
+### Project Layout
 
-## Project Layout
-
-```
+```text
 src/                  Svelte 5 frontend (routes, components, lib)
 src-tauri/            Rust backend, tauri.conf.json, capabilities, icons
 src-tauri/src/        PDF extraction, SQLite migrations, Tauri commands
 bin/                  Local-only convenience folder for built executables (gitignored)
 .github/workflows/    CI (lint/typecheck/test) and Release (multi-platform tauri-action)
 ```
+
+## What's new
+
+### v0.3.0
+
+- **Pull content from a URL.** When enabled in Settings, URLs pasted into
+  the test-generation prompt are fetched and their content is added to
+  the AI's context. Supports both HTML and PDF URLs.
+- **Internal improvements.** GitHub Actions upgraded to Node.js 24.
+  Added the `@mozilla/readability` library for cleaner HTML extraction
+  and a new `fetch_and_extract_pdf_url` command for PDF URL support.
+
+See [CHANGELOG.md](CHANGELOG.md) for older versions.

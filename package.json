@@ -43,6 +43,7 @@
     "eslint-plugin-svelte": "^2.46.1",
     "globals": "^15.15.0",
     "jsdom": "^26.0.0",
+    "markdownlint-cli2": "^0.22.1",
     "postcss": "^8.5.2",
     "prettier": "^3.5.0",
     "prettier-plugin-svelte": "^3.3.3",

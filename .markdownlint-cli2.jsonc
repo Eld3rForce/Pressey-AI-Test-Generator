@@ -1,0 +1,17 @@
+{
+  "globs": ["**/*.md"],
+  "ignores": [
+    ".omo/**",
+    "node_modules/**",
+    "CHANGELOG.md",
+    "bin/**",
+    "src-tauri/target/**"
+  ],
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD033": false,
+    "MD040": false,
+    "MD041": false
+  }
+}
